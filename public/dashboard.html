@@ -221,33 +221,23 @@
                         <button type="submit" class="primary-btn">Upload</button>
                         <div id="mediaUploadFeedback" class="form-feedback"></div>
                     </form>
-
-                        <div class="embed-settings card-like">
-                            <div class="panel-heading">
-                                <h4>Embed defaults (yours)</h4>
-                                <span class="panel-meta">Applied when copying embed links</span>
-                            </div>
-                            <label for="embedTitle">Title</label>
-                            <input type="text" id="embedTitle" placeholder="Custom title">
-
-                            <label for="embedDesc">Description</label>
-                            <textarea id="embedDesc" rows="3" placeholder="Add a description"></textarea>
-
-                            <label for="embedColor">Accent Color</label>
-                            <input type="color" id="embedColor" value="#151521">
-                            <p class="form-helper">Saved only in your browser and added to embed URLs you copy.</p>
-                        </div>
                     </div>
 
-                    <div class="media-grid-wrap">
-                        <div class="media-grid-column">
+                    <div class="media-tabs">
+                        <div class="media-tab-nav">
+                            <button type="button" class="pill-btn media-tab-btn active" data-media-tab="shared">Shared Media</button>
+                            <button type="button" class="pill-btn media-tab-btn" data-media-tab="private">Your Media</button>
+                        </div>
+
+                        <div class="media-tab-pane active" data-media-pane="shared">
                             <div class="panel-heading">
                                 <h4>Shared Media</h4>
                                 <span class="panel-meta">Visible to everyone</span>
                             </div>
                             <div id="sharedAssetsGrid" class="media-grid"></div>
                         </div>
-                        <div class="media-grid-column">
+
+                        <div class="media-tab-pane" data-media-pane="private">
                             <div class="panel-heading">
                                 <h4>Your Media</h4>
                                 <span class="panel-meta">Private to you</span>

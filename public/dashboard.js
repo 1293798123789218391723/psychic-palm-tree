@@ -28,6 +28,8 @@
     const uploadFeedback = byId('mediaUploadFeedback');
     const sharedGrid = byId('sharedAssetsGrid');
     const privateGrid = byId('privateAssetsGrid');
+    const mediaTabButtons = document.querySelectorAll('.media-tab-btn');
+    const mediaTabPanes = document.querySelectorAll('.media-tab-pane');
 
     const embedTitleAdmin = byId('embedTitleAdmin');
     const embedDescAdmin = byId('embedDescAdmin');
@@ -58,6 +60,7 @@
         initChatUI();
         initMediaViewer();
         initMediaForm();
+        initMediaTabs();
         initEmbedAdminUI();
         initTicTacToe();
         initAdminPanel();
@@ -87,8 +90,25 @@
             pane.style.display = isActive ? 'block' : 'none';
         });
         if (tab === 'media' && currentUser?.isApproved) {
+            setActiveMediaTab('shared');
             loadMedia();
         }
+    }
+
+    function initMediaTabs() {
+        mediaTabButtons.forEach((btn) =>
+            btn.addEventListener('click', () => setActiveMediaTab(btn.dataset.mediaTab))
+        );
+        setActiveMediaTab('shared');
+    }
+
+    function setActiveMediaTab(tab) {
+        mediaTabButtons.forEach((btn) => btn.classList.toggle('active', btn.dataset.mediaTab === tab));
+        mediaTabPanes.forEach((pane) => {
+            const isActive = pane.dataset.mediaPane === tab;
+            pane.classList.toggle('active', isActive);
+            pane.style.display = isActive ? 'block' : 'none';
+        });
     }
 
     // ----- User State -----
@@ -414,38 +434,6 @@
 
     function initEmbedAdminUI() {
         embedSaveBtn?.addEventListener('click', saveEmbedPrefsAdmin);
-        
-        // User embed settings (stored in localStorage)
-        const embedTitle = byId('embedTitle');
-        const embedDesc = byId('embedDesc');
-        const embedColor = byId('embedColor');
-        
-        // Load from localStorage
-        const savedPrefs = localStorage.getItem('userEmbedPrefs');
-        if (savedPrefs) {
-            try {
-                const prefs = JSON.parse(savedPrefs);
-                if (embedTitle) embedTitle.value = prefs.title || '';
-                if (embedDesc) embedDesc.value = prefs.desc || '';
-                if (embedColor) embedColor.value = prefs.color || '#151521';
-            } catch (e) {
-                console.error('Failed to load embed prefs', e);
-            }
-        }
-        
-        // Save to localStorage on change
-        [embedTitle, embedDesc, embedColor].forEach(el => {
-            if (el) {
-                el.addEventListener('change', () => {
-                    const prefs = {
-                        title: embedTitle?.value || '',
-                        desc: embedDesc?.value || '',
-                        color: embedColor?.value || '#151521'
-                    };
-                    localStorage.setItem('userEmbedPrefs', JSON.stringify(prefs));
-                });
-            }
-        });
     }
 
     async function loadEmbedPrefsFromServer() {
@@ -622,22 +610,6 @@
             container.innerHTML = '<div class="empty-state">No files yet.</div>';
             return;
         }
-        // Merge global embed prefs with user's local prefs
-        const globalPrefs = embedPrefs || {};
-        const userPrefsStr = localStorage.getItem('userEmbedPrefs');
-        let userPrefs = {};
-        if (userPrefsStr) {
-            try {
-                userPrefs = JSON.parse(userPrefsStr);
-            } catch (e) {
-                // ignore
-            }
-        }
-        const prefs = {
-            title: userPrefs.title || globalPrefs.title || '',
-            desc: userPrefs.desc || globalPrefs.desc || '',
-            color: userPrefs.color || globalPrefs.color || '#151521'
-        };
         container.innerHTML = assets
             .map((asset) => {
                 // Get clean URL without query parameters
@@ -652,14 +624,13 @@
                 } catch (e) {
                     // If URL parsing fails, use as-is
                 }
-                
+
                 // Embed URL with prefs (for embed button only)
                 let embedUrl = asset.embedUrl || cleanUrl;
                 if (embedUrl && !embedUrl.startsWith('http://') && !embedUrl.startsWith('https://')) {
                     embedUrl = new URL(embedUrl, window.location.origin).toString();
                 }
-                embedUrl = appendEmbedPrefs(embedUrl, prefs);
-                
+
                 const videoThumb = isVideo(cleanUrl)
                     ? `<video class="thumb-video" src="${cleanUrl}" muted playsinline loop preload="metadata"></video><span class="play-icon">&#9658;</span>`
                     : '';
@@ -692,25 +663,6 @@
         actionButtons.forEach(btn => {
             btn.addEventListener('click', handleAssetActions);
         });
-    }
-
-    function appendEmbedPrefs(url, prefs) {
-        if (!url) return '';
-        try {
-            // Handle both absolute and relative URLs
-            let baseUrl = url;
-            if (!url.startsWith('http://') && !url.startsWith('https://')) {
-                baseUrl = new URL(url, window.location.origin).toString();
-            }
-            const u = new URL(baseUrl);
-            if (prefs.title) u.searchParams.set('title', prefs.title);
-            if (prefs.desc) u.searchParams.set('desc', prefs.desc);
-            if (prefs.color) u.searchParams.set('color', prefs.color);
-            return u.toString();
-        } catch (err) {
-            console.error('Error appending embed prefs:', err, url);
-            return url; // Return original URL if parsing fails
-        }
     }
 
     function clearMediaUI() {

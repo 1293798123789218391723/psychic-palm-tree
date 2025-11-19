@@ -999,14 +999,30 @@ function renderEmbedPage(fileUrl, fileName, query = {}) {
   const description = merged.desc || 'Embedded media';
   const color = merged.color || '#151521';
   const absoluteUrl = fileUrl.startsWith('http') ? fileUrl : `${PUBLIC_URL || ''}${fileUrl}`;
-  return `<!DOCTYPE html>
-  <html lang="en">
-  <head>
+  const ext = (path.extname(fileName || '') || '').toLowerCase();
+  const isImage = /\.(png|jpe?g|gif|webp|avif|svg)$/i.test(ext);
+  const isVideo = /\.(mp4|webm|ogg|mov|m4v)$/i.test(ext);
+
+  const commonMeta = `
     <meta charset="UTF-8">
     <title>${title}</title>
     <meta name="theme-color" content="${color}">
     <meta property="og:title" content="${title}">
     <meta property="og:description" content="${description}">
+  `;
+
+  const imageMeta = isImage ? `
+    <meta property="og:type" content="image">
+    <meta property="og:image" content="${absoluteUrl}">
+    <meta property="og:image:secure_url" content="${absoluteUrl}">
+    <meta property="og:image:alt" content="${title}">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="${title}">
+    <meta name="twitter:description" content="${description}">
+    <meta name="twitter:image" content="${absoluteUrl}">
+  ` : '';
+
+  const videoMeta = isVideo ? `
     <meta property="og:type" content="video.other">
     <meta property="og:video" content="${absoluteUrl}">
     <meta property="og:video:url" content="${absoluteUrl}">
@@ -1020,10 +1036,34 @@ function renderEmbedPage(fileUrl, fileName, query = {}) {
     <meta name="twitter:player" content="${absoluteUrl}">
     <meta name="twitter:player:width" content="720">
     <meta name="twitter:player:height" content="1280">
-    <style>body{margin:0;background:#050517;display:flex;align-items:center;justify-content:center;height:100vh;color:#fff;font-family:Arial,sans-serif;}a{color:#7ab9ff;}video{max-width:90vw;max-height:90vh;border-radius:12px;}</style>
+  ` : '';
+
+  const fallbackMeta = !isImage && !isVideo ? `
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="${absoluteUrl}">
+    <meta property="og:image" content="${absoluteUrl}">
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="${title}">
+    <meta name="twitter:description" content="${description}">
+  ` : '';
+
+  const mediaElement = isImage
+    ? `<img src="${absoluteUrl}" alt="${title}" style="max-width:90vw;max-height:90vh;border-radius:12px;object-fit:contain;"/>`
+    : isVideo
+      ? `<video src="${absoluteUrl}" controls autoplay loop playsinline style="max-width:90vw;max-height:90vh;border-radius:12px;"></video>`
+      : `<a href="${absoluteUrl}">${absoluteUrl}</a>`;
+
+  return `<!DOCTYPE html>
+  <html lang="en">
+  <head>
+    ${commonMeta}
+    ${imageMeta}
+    ${videoMeta}
+    ${fallbackMeta}
+    <style>body{margin:0;background:#050517;display:flex;align-items:center;justify-content:center;height:100vh;color:#fff;font-family:Arial,sans-serif;}a{color:#7ab9ff;word-break:break-all;}</style>
   </head>
   <body>
-    <video src="${absoluteUrl}" controls autoplay loop playsinline></video>
+    ${mediaElement}
   </body>
   </html>`;
 }
