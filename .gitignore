@@ -1,0 +1,7 @@
+node_modules/
+.env
+larpgod.db
+*.sqlite
+*.sqlite3
+.DS_Store
+beep.b64
