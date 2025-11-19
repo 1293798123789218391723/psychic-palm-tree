@@ -454,6 +454,37 @@ button {
     gap: 1.5rem;
 }
 
+.summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+}
+
+.summary-card {
+    background: linear-gradient(145deg, rgba(91, 162, 255, 0.12), rgba(10, 12, 32, 0.9));
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 16px;
+    padding: 1.1rem 1.3rem;
+    box-shadow: 0 18px 40px rgba(3, 5, 20, 0.45);
+}
+
+.summary-label {
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 0.7rem;
+    color: var(--text-muted);
+}
+
+.summary-value {
+    font-size: 1.8rem;
+    margin: 0.2rem 0;
+}
+
+.summary-meta {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+}
+
 .dashboard-header {
     background: var(--card-bg);
     border: 1px solid var(--card-border);
@@ -510,6 +541,21 @@ button {
     display: grid;
     gap: 1.5rem;
     grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+}
+
+.content-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 1.25rem;
+    align-items: start;
+}
+
+.panel-card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 20px;
+    padding: 1.5rem;
+    box-shadow: 0 20px 50px rgba(3, 5, 20, 0.45);
 }
 
 section {
@@ -766,6 +812,14 @@ body.is-owner .owner-only {
     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
     gap: 1rem;
     margin-bottom: 1.5rem;
+}
+
+.media-bucket-wrapper {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    padding: 1rem;
+    margin-bottom: 1rem;
 }
 
 .media-bucket-item {
@@ -1059,6 +1113,93 @@ body.pending-account #approvedContent {
 }
 
 .tab-pane.active {
+    display: block;
+}
+
+.pill-btn {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 999px;
+    color: #fff;
+    padding: 0.55rem 1rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.pill-btn.active,
+.pill-btn:hover {
+    background: linear-gradient(135deg, #5ba2ff, #a277ff);
+    border-color: transparent;
+    box-shadow: 0 8px 20px rgba(91, 162, 255, 0.25);
+}
+
+.media-tabs {
+    margin-top: 1rem;
+}
+
+
+.media-layout {
+    display: grid;
+    grid-template-columns: minmax(280px, 340px) 1fr;
+    gap: 1.4rem;
+    align-items: start;
+}
+
+@media (max-width: 960px) {
+    .media-layout {
+        grid-template-columns: 1fr;
+    }
+}
+
+.media-column {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 18px;
+    padding: 1.2rem;
+    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.3);
+}
+
+.media-column--form {
+    position: sticky;
+    top: 90px;
+}
+
+.media-tab-buttons {
+    display: flex;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.75rem;
+}
+
+.media-tab-content {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    padding: 1rem;
+}
+
+.media-tab-btn {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 12px;
+    padding: 0.65rem 1rem;
+    color: #fff;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.media-tab-btn.active,
+.media-tab-btn:hover {
+    background: linear-gradient(135deg, #5ba2ff, #a277ff);
+    border-color: transparent;
+    box-shadow: 0 10px 25px rgba(91, 162, 255, 0.25);
+}
+
+.media-tab-pane {
+    display: none;
+}
+
+.media-tab-pane.active {
     display: block;
 }
 

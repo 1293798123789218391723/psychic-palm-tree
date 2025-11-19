@@ -17,6 +17,7 @@
     const chatForm = byId('chatForm');
     const chatInput = byId('chatInput');
     const onlineCount = byId('onlineCount');
+    const onlineCountSummary = byId('onlineCountSummary');
 
     const externalMailInline = byId('externalMailInline');
 
@@ -28,6 +29,10 @@
     const uploadFeedback = byId('mediaUploadFeedback');
     const sharedGrid = byId('sharedAssetsGrid');
     const privateGrid = byId('privateAssetsGrid');
+    const mediaTabButtons = document.querySelectorAll('.media-tab-btn');
+    const mediaTabPanes = document.querySelectorAll('.media-tab-pane');
+    const sharedCountDisplay = byId('sharedFileCount');
+    const privateCountDisplay = byId('privateFileCount');
 
     const embedTitleAdmin = byId('embedTitleAdmin');
     const embedDescAdmin = byId('embedDescAdmin');
@@ -51,6 +56,7 @@
     let chatInterval = null;
     let externalMailInterval = null;
     let audioContext = null;
+    let viewerMediaEl = null;
 
     document.addEventListener('DOMContentLoaded', () => {
         initTabs();
@@ -58,6 +64,7 @@
         initChatUI();
         initMediaViewer();
         initMediaForm();
+        initMediaTabs();
         initEmbedAdminUI();
         initTicTacToe();
         initAdminPanel();
@@ -87,8 +94,25 @@
             pane.style.display = isActive ? 'block' : 'none';
         });
         if (tab === 'media' && currentUser?.isApproved) {
+            setActiveMediaTab('shared');
             loadMedia();
         }
+    }
+
+    function initMediaTabs() {
+        mediaTabButtons.forEach((btn) =>
+            btn.addEventListener('click', () => setActiveMediaTab(btn.dataset.mediaTab))
+        );
+        setActiveMediaTab('shared');
+    }
+
+    function setActiveMediaTab(tab) {
+        mediaTabButtons.forEach((btn) => btn.classList.toggle('active', btn.dataset.mediaTab === tab));
+        mediaTabPanes.forEach((pane) => {
+            const isActive = pane.dataset.mediaPane === tab;
+            pane.classList.toggle('active', isActive);
+            pane.style.display = isActive ? 'block' : 'none';
+        });
     }
 
     // ----- User State -----
@@ -131,6 +155,8 @@
             const tb = byId('tttBoard');
             if (gs) gs.textContent = 'Queue idle.';
             if (tb) tb.classList.add('hidden');
+            if (onlineCount) onlineCount.textContent = '0';
+            if (onlineCountSummary) onlineCountSummary.textContent = '0';
             stopPolling();
         }
     }
@@ -329,7 +355,11 @@
                 headers: { Authorization: `Bearer ${token}` },
             });
             const data = await res.json();
-            if (res.ok && onlineCount) onlineCount.textContent = data.online ?? 0;
+            if (res.ok) {
+                const online = data.online ?? 0;
+                if (onlineCount) onlineCount.textContent = online;
+                if (onlineCountSummary) onlineCountSummary.textContent = online;
+            }
         } catch (err) {
             console.error('Heartbeat failed', err);
         }
@@ -414,38 +444,6 @@
 
     function initEmbedAdminUI() {
         embedSaveBtn?.addEventListener('click', saveEmbedPrefsAdmin);
-        
-        // User embed settings (stored in localStorage)
-        const embedTitle = byId('embedTitle');
-        const embedDesc = byId('embedDesc');
-        const embedColor = byId('embedColor');
-        
-        // Load from localStorage
-        const savedPrefs = localStorage.getItem('userEmbedPrefs');
-        if (savedPrefs) {
-            try {
-                const prefs = JSON.parse(savedPrefs);
-                if (embedTitle) embedTitle.value = prefs.title || '';
-                if (embedDesc) embedDesc.value = prefs.desc || '';
-                if (embedColor) embedColor.value = prefs.color || '#151521';
-            } catch (e) {
-                console.error('Failed to load embed prefs', e);
-            }
-        }
-        
-        // Save to localStorage on change
-        [embedTitle, embedDesc, embedColor].forEach(el => {
-            if (el) {
-                el.addEventListener('change', () => {
-                    const prefs = {
-                        title: embedTitle?.value || '',
-                        desc: embedDesc?.value || '',
-                        color: embedColor?.value || '#151521'
-                    };
-                    localStorage.setItem('userEmbedPrefs', JSON.stringify(prefs));
-                });
-            }
-        });
     }
 
     async function loadEmbedPrefsFromServer() {
@@ -612,8 +610,11 @@
     function renderAssets(entries = []) {
         const shared = entries.find((entry) => entry.bucket.type === 'shared');
         const personal = entries.find((entry) => entry.bucket.type === 'private');
-        renderAssetGrid(sharedGrid, shared?.assets || [], false);
-        renderAssetGrid(privateGrid, personal?.assets || [], true);
+        const sharedAssets = shared?.assets || [];
+        const personalAssets = personal?.assets || [];
+        renderAssetGrid(sharedGrid, sharedAssets, false);
+        renderAssetGrid(privateGrid, personalAssets, true);
+        updateMediaCounts(sharedAssets.length, personalAssets.length);
     }
 
     function renderAssetGrid(container, assets, allowDelete) {
@@ -622,22 +623,6 @@
             container.innerHTML = '<div class="empty-state">No files yet.</div>';
             return;
         }
-        // Merge global embed prefs with user's local prefs
-        const globalPrefs = embedPrefs || {};
-        const userPrefsStr = localStorage.getItem('userEmbedPrefs');
-        let userPrefs = {};
-        if (userPrefsStr) {
-            try {
-                userPrefs = JSON.parse(userPrefsStr);
-            } catch (e) {
-                // ignore
-            }
-        }
-        const prefs = {
-            title: userPrefs.title || globalPrefs.title || '',
-            desc: userPrefs.desc || globalPrefs.desc || '',
-            color: userPrefs.color || globalPrefs.color || '#151521'
-        };
         container.innerHTML = assets
             .map((asset) => {
                 // Get clean URL without query parameters
@@ -652,14 +637,13 @@
                 } catch (e) {
                     // If URL parsing fails, use as-is
                 }
-                
+
                 // Embed URL with prefs (for embed button only)
                 let embedUrl = asset.embedUrl || cleanUrl;
                 if (embedUrl && !embedUrl.startsWith('http://') && !embedUrl.startsWith('https://')) {
                     embedUrl = new URL(embedUrl, window.location.origin).toString();
                 }
-                embedUrl = appendEmbedPrefs(embedUrl, prefs);
-                
+
                 const videoThumb = isVideo(cleanUrl)
                     ? `<video class="thumb-video" src="${cleanUrl}" muted playsinline loop preload="metadata"></video><span class="play-icon">&#9658;</span>`
                     : '';
@@ -694,29 +678,11 @@
         });
     }
 
-    function appendEmbedPrefs(url, prefs) {
-        if (!url) return '';
-        try {
-            // Handle both absolute and relative URLs
-            let baseUrl = url;
-            if (!url.startsWith('http://') && !url.startsWith('https://')) {
-                baseUrl = new URL(url, window.location.origin).toString();
-            }
-            const u = new URL(baseUrl);
-            if (prefs.title) u.searchParams.set('title', prefs.title);
-            if (prefs.desc) u.searchParams.set('desc', prefs.desc);
-            if (prefs.color) u.searchParams.set('color', prefs.color);
-            return u.toString();
-        } catch (err) {
-            console.error('Error appending embed prefs:', err, url);
-            return url; // Return original URL if parsing fails
-        }
-    }
-
     function clearMediaUI() {
         renderBucketSummary([]);
         renderAssetGrid(sharedGrid, [], false);
         renderAssetGrid(privateGrid, [], true);
+        updateMediaCounts(0, 0);
         setFeedback(uploadFeedback, '', 'info');
         if (bucketSelect) {
             bucketSelect.innerHTML = '';
@@ -873,6 +839,7 @@
                 closeMediaViewer();
             }
         });
+        mediaViewerBody?.addEventListener('click', (e) => e.stopPropagation());
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') closeMediaViewer();
         });
@@ -889,11 +856,14 @@
             el = document.createElement('video');
             el.src = url;
             el.controls = true;
+            el.playsInline = true;
             el.autoplay = true;
+            el.addEventListener('click', (event) => event.stopPropagation());
         } else if (isImage(lower)) {
             el = document.createElement('img');
             el.src = url;
             el.alt = name || 'media';
+            el.loading = 'lazy';
         } else {
             el = document.createElement('div');
             el.className = 'empty-state';
@@ -901,14 +871,20 @@
         }
 
         mediaViewerBody.appendChild(el);
+        viewerMediaEl = el;
         mediaViewerCopy.dataset.url = url || '';
         mediaViewerOpen.href = url || '#';
         mediaViewer.classList.remove('hidden');
     }
 
     function closeMediaViewer() {
+        const shouldExitFullscreen = document.fullscreenElement && document.fullscreenElement === viewerMediaEl;
+        if (shouldExitFullscreen && document.exitFullscreen) {
+            document.exitFullscreen().catch(() => {});
+        }
         mediaViewer?.classList.add('hidden');
         if (mediaViewerBody) mediaViewerBody.innerHTML = '';
+        viewerMediaEl = null;
     }
 
     // ----- Helpers -----
@@ -961,6 +937,11 @@
 
     function cleanUrl(url = '') {
         return url.split('#')[0].split('?')[0];
+    }
+
+    function updateMediaCounts(shared = 0, personal = 0) {
+        if (sharedCountDisplay) sharedCountDisplay.textContent = shared;
+        if (privateCountDisplay) privateCountDisplay.textContent = personal;
     }
 
     // ----- Tic Tac Toe -----

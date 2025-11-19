@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LarpGod Control Center</title>
-    <link rel="stylesheet" href="email.css">
+    <link rel="stylesheet" href="email.css?v=1.0.1">
 </head>
 <body class="page-dashboard">
     <div id="particles-js"></div>
@@ -97,16 +97,37 @@
                 </div>
             </header>
 
+            <section class="summary-grid">
+                <div class="summary-card">
+                    <p class="summary-label">Online now</p>
+                    <h3 class="summary-value"><span id="onlineCountSummary">0</span></h3>
+                    <p class="summary-meta">Active in community chat</p>
+                </div>
+                <div class="summary-card">
+                    <p class="summary-label">Shared media</p>
+                    <h3 class="summary-value"><span id="sharedFileCount">0</span></h3>
+                    <p class="summary-meta">Files visible to everyone</p>
+                </div>
+                <div class="summary-card">
+                    <p class="summary-label">Your library</p>
+                    <h3 class="summary-value"><span id="privateFileCount">0</span></h3>
+                    <p class="summary-meta">Private uploads only you see</p>
+                </div>
+            </section>
+
             <div class="tab-nav">
                 <button class="ghost-btn tab-btn active" data-tab="overview">Overview</button>
                 <button class="ghost-btn tab-btn" data-tab="media">Media</button>
             </div>
 
             <div id="tabOverview" class="tab-pane active">
-                <div class="dashboard service-grid">
-                    <section class="chat-panel">
+                <div class="content-grid">
+                    <section class="panel-card chat-panel">
                         <div class="panel-heading">
-                            <h2>Community Chat</h2>
+                            <div>
+                                <p class="eyebrow">Community</p>
+                                <h2>Chat</h2>
+                            </div>
                             <span class="panel-meta"><span id="onlineCount">0</span> online</span>
                         </div>
                         <div id="chatMessages" class="chat-messages"></div>
@@ -116,143 +137,147 @@
                         </form>
                     </section>
 
-                    <section class="messages-section">
+                    <section class="panel-card messages-section">
                         <div class="panel-heading">
-                            <h2>Inbox (Catchall)</h2>
+                            <div>
+                                <p class="eyebrow">Mail</p>
+                                <h2>Inbox (Catchall)</h2>
+                            </div>
                             <span class="panel-meta">Latest forwards for @larpgod.xyz</span>
                         </div>
                         <div id="externalMailInline" class="messages-list"></div>
                     </section>
-                </div>
 
-                <section class="game-panel">
-                    <div class="panel-heading">
-                        <h2>Tic Tac Toe</h2>
-                        <span class="panel-meta">Matchmaking vs online players</span>
-                    </div>
-                    <div class="game-actions">
-                        <button id="matchmakeBtn" class="primary-btn slim">Find Match</button>
-                        <button id="leaveQueueBtn" class="ghost-btn slim">Leave</button>
-                    </div>
-                    <div id="gameStatus" class="game-status">Queue idle.</div>
-                    <div id="tttBoard" class="ttt-board hidden">
-                        <button data-cell="0"></button>
-                        <button data-cell="1"></button>
-                        <button data-cell="2"></button>
-                        <button data-cell="3"></button>
-                        <button data-cell="4"></button>
-                        <button data-cell="5"></button>
-                        <button data-cell="6"></button>
-                        <button data-cell="7"></button>
-                        <button data-cell="8"></button>
-                    </div>
-                </section>
-
-                <section class="admin-panel" id="adminPanel">
-                    <div class="panel-heading">
-                        <h2>Approval Console</h2>
-                        <span class="panel-meta">username dot only</span>
-                    </div>
-                    <form id="adminApproveForm" class="stack-form">
-                        <label for="adminUsernameInput">Username</label>
-                        <input type="text" id="adminUsernameInput" placeholder="username" required>
-                        <div class="admin-actions">
-                            <button type="submit" class="primary-btn slim">Approve</button>
-                            <button type="button" id="adminRemoveBtn" class="ghost-btn">Remove</button>
-                        </div>
-                        <div id="adminFeedback" class="form-feedback"></div>
-                    </form>
-                    <div class="approved-list">
-                        <h4>Approved Users</h4>
-                        <div id="approvedUsersList" class="media-bucket-list"></div>
-                    </div>
-                    <div class="unapproved-list" style="margin-top: 1.5rem;">
-                        <h4>Pending Approval</h4>
-                        <div id="unapprovedUsersList" class="media-bucket-list"></div>
-                    </div>
-                    <div class="card-like owner-only" id="embedAdminCard">
+                    <section class="panel-card game-panel">
                         <div class="panel-heading">
-                            <h3>Global Embed Defaults</h3>
-                            <span class="panel-meta">Used in Discord embeds and copy actions</span>
-                        </div>
-                        <div class="inline-group">
                             <div>
-                                <label for="embedTitleAdmin">Title</label>
-                                <input type="text" id="embedTitleAdmin" maxlength="120" placeholder="Embed title for all users">
+                                <p class="eyebrow">Play</p>
+                                <h2>Tic Tac Toe</h2>
                             </div>
-                            <div>
-                                <label for="embedDescAdmin">Description</label>
-                                <textarea id="embedDescAdmin" rows="3" maxlength="500" placeholder="Embed description for all users"></textarea>
-                            </div>
-                            <div>
-                                <label for="embedColorAdmin">Accent Color</label>
-                                <input type="color" id="embedColorAdmin" value="#151521">
-                            </div>
+                            <span class="panel-meta">Matchmaking vs online players</span>
                         </div>
-                        <div class="admin-actions">
-                            <button type="button" id="embedSaveBtn" class="primary-btn slim">Save Embed Defaults</button>
-                            <span id="embedSaveStatus" class="form-feedback"></span>
+                        <div class="game-actions">
+                            <button id="matchmakeBtn" class="primary-btn slim">Find Match</button>
+                            <button id="leaveQueueBtn" class="ghost-btn slim">Leave</button>
                         </div>
-                        <p class="form-helper">Only the owner can change this. Applies to all copied embed links.</p>
-                    </div>
-                </section>
+                        <div id="gameStatus" class="game-status">Queue idle.</div>
+                        <div id="tttBoard" class="ttt-board hidden">
+                            <button data-cell="0"></button>
+                            <button data-cell="1"></button>
+                            <button data-cell="2"></button>
+                            <button data-cell="3"></button>
+                            <button data-cell="4"></button>
+                            <button data-cell="5"></button>
+                            <button data-cell="6"></button>
+                            <button data-cell="7"></button>
+                            <button data-cell="8"></button>
+                        </div>
+                    </section>
+
+                    <section class="panel-card admin-panel" id="adminPanel">
+                        <div class="panel-heading">
+                            <div>
+                                <p class="eyebrow">Moderation</p>
+                                <h2>Approval Console</h2>
+                            </div>
+                            <span class="panel-meta">username dot only</span>
+                        </div>
+                        <form id="adminApproveForm" class="stack-form">
+                            <label for="adminUsernameInput">Username</label>
+                            <input type="text" id="adminUsernameInput" placeholder="username" required>
+                            <div class="admin-actions">
+                                <button type="submit" class="primary-btn slim">Approve</button>
+                                <button type="button" id="adminRemoveBtn" class="ghost-btn">Remove</button>
+                            </div>
+                            <div id="adminFeedback" class="form-feedback"></div>
+                        </form>
+                        <div class="approved-list">
+                            <h4>Approved Users</h4>
+                            <div id="approvedUsersList" class="media-bucket-list"></div>
+                        </div>
+                        <div class="unapproved-list" style="margin-top: 1.5rem;">
+                            <h4>Pending Approval</h4>
+                            <div id="unapprovedUsersList" class="media-bucket-list"></div>
+                        </div>
+                        <div class="card-like owner-only" id="embedAdminCard">
+                            <div class="panel-heading">
+                                <div>
+                                    <p class="eyebrow">Embeds</p>
+                                    <h3>Global Defaults</h3>
+                                </div>
+                                <span class="panel-meta">Used in Discord embeds and copy actions</span>
+                            </div>
+                            <div class="inline-group">
+                                <div>
+                                    <label for="embedTitleAdmin">Title</label>
+                                    <input type="text" id="embedTitleAdmin" maxlength="120" placeholder="Embed title for all users">
+                                </div>
+                                <div>
+                                    <label for="embedDescAdmin">Description</label>
+                                    <textarea id="embedDescAdmin" rows="3" maxlength="500" placeholder="Embed description for all users"></textarea>
+                                </div>
+                                <div>
+                                    <label for="embedColorAdmin">Accent Color</label>
+                                    <input type="color" id="embedColorAdmin" value="#151521">
+                                </div>
+                            </div>
+                            <div class="admin-actions">
+                                <button type="button" id="embedSaveBtn" class="primary-btn slim">Save Embed Defaults</button>
+                                <span id="embedSaveStatus" class="form-feedback"></span>
+                            </div>
+                            <p class="form-helper">Only the owner can change this. Applies to all copied embed links.</p>
+                        </div>
+                    </section>
+                </div>
             </div>
 
             <div id="tabMedia" class="tab-pane">
-                <section class="media-hosting-section">
+                <section class="panel-card media-hosting-section">
                     <div class="panel-heading">
-                        <h2>Media Hosting</h2>
+                        <div>
+                            <p class="eyebrow">Storage</p>
+                            <h2>Media Hosting</h2>
+                        </div>
                         <span class="panel-meta">Shared + private storage</span>
                     </div>
 
-                    <div id="mediaBucketsList" class="media-bucket-summary"></div>
-
-                    <div class="media-form-grid">
-                    <form id="mediaUploadForm" class="stack-form media-upload-form" enctype="multipart/form-data">
-                        <label for="mediaBucketSelect">Destination</label>
-                        <select id="mediaBucketSelect" required></select>
-
-                        <label for="mediaAssetName">Title (optional)</label>
-                        <input type="text" id="mediaAssetName" placeholder="auto from filename">
-
-                        <label class="file-label" for="mediaAssetFile">Choose File</label>
-                        <input type="file" id="mediaAssetFile" required>
-
-                        <button type="submit" class="primary-btn">Upload</button>
-                        <div id="mediaUploadFeedback" class="form-feedback"></div>
-                    </form>
-
-                        <div class="embed-settings card-like">
-                            <div class="panel-heading">
-                                <h4>Embed defaults (yours)</h4>
-                                <span class="panel-meta">Applied when copying embed links</span>
+                    <div class="media-layout">
+                        <div class="media-column media-column--form">
+                            <div class="media-bucket-wrapper">
+                                <h4>Bucket overview</h4>
+                                <div id="mediaBucketsList" class="media-bucket-summary"></div>
                             </div>
-                            <label for="embedTitle">Title</label>
-                            <input type="text" id="embedTitle" placeholder="Custom title">
+                            <form id="mediaUploadForm" class="stack-form media-upload-form" enctype="multipart/form-data">
+                                <h4>Upload a file</h4>
+                                <label for="mediaBucketSelect">Destination</label>
+                                <select id="mediaBucketSelect" required></select>
 
-                            <label for="embedDesc">Description</label>
-                            <textarea id="embedDesc" rows="3" placeholder="Add a description"></textarea>
+                                <label for="mediaAssetName">Title (optional)</label>
+                                <input type="text" id="mediaAssetName" placeholder="auto from filename">
 
-                            <label for="embedColor">Accent Color</label>
-                            <input type="color" id="embedColor" value="#151521">
-                            <p class="form-helper">Saved only in your browser and added to embed URLs you copy.</p>
+                                <label class="file-label" for="mediaAssetFile">Choose File</label>
+                                <input type="file" id="mediaAssetFile" required>
+
+                                <button type="submit" class="primary-btn">Upload</button>
+                                <div id="mediaUploadFeedback" class="form-feedback"></div>
+                            </form>
                         </div>
-                    </div>
 
-                    <div class="media-grid-wrap">
-                        <div class="media-grid-column">
-                            <div class="panel-heading">
-                                <h4>Shared Media</h4>
-                                <span class="panel-meta">Visible to everyone</span>
+                        <div class="media-column media-column--library">
+                            <div class="media-tabs">
+                                <div class="media-tab-buttons">
+                                    <button class="media-tab-btn active" data-media-tab="shared">Shared</button>
+                                    <button class="media-tab-btn" data-media-tab="private">Your Media</button>
+                                </div>
+                                <div class="media-tab-content">
+                                    <div class="media-tab-pane active" data-media-pane="shared">
+                                        <div id="sharedAssetsGrid" class="media-grid"></div>
+                                    </div>
+                                    <div class="media-tab-pane" data-media-pane="private">
+                                        <div id="privateAssetsGrid" class="media-grid"></div>
+                                    </div>
+                                </div>
                             </div>
-                            <div id="sharedAssetsGrid" class="media-grid"></div>
-                        </div>
-                        <div class="media-grid-column">
-                            <div class="panel-heading">
-                                <h4>Your Media</h4>
-                                <span class="panel-meta">Private to you</span>
-                            </div>
-                            <div id="privateAssetsGrid" class="media-grid"></div>
                         </div>
                     </div>
                 </section>
@@ -282,7 +307,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/particles.js@2.0.0/particles.min.js"></script>
     <script src="/config.js"></script>
-    <script src="email.js"></script>
-    <script src="dashboard.js"></script>
+    <script src="email.js?v=1.0.0"></script>
+    <script src="dashboard.js?v=1.0.1"></script>
 </body>
 </html>
