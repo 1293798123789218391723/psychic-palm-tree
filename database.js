@@ -2,7 +2,8 @@ const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 require('dotenv').config();
 
-const DB_PATH = process.env.DATABASE_PATH || './larpgod.db';
+// Use the fixed host path for the user database to align with the Ubuntu deployment layout.
+const DB_PATH = '/home/mesh/data/larpgod.db';
 
 class Database {
   constructor() {
