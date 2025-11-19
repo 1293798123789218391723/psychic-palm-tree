@@ -297,4 +297,10 @@ class Database {
   }
 }
 
-module.exports = new Database();
+const databaseInstance = new Database();
+
+// Export the resolved path for consumers that need to report or validate the DB location.
+databaseInstance.DB_PATH = DB_PATH;
+databaseInstance.DEFAULT_DB_PATH = DEFAULT_DB_PATH;
+
+module.exports = databaseInstance;
