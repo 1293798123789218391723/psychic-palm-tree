@@ -14,20 +14,6 @@ if (!fs.existsSync(dbDir)) {
 }
 
 console.log(`Using SQLite database at: ${DB_PATH}`);
-const fs = require('fs');
-const path = require('path');
-const sqlite3 = require('sqlite3').verbose();
-require('dotenv').config();
-
-// Default to the fixed host path while still allowing overrides for local development.
-const DEFAULT_DB_PATH = '/home/mesh/data/larpgod.db';
-const DB_PATH = process.env.DB_PATH || DEFAULT_DB_PATH;
-
-// Ensure the directory exists before opening the database file.
-const dbDir = path.dirname(DB_PATH);
-if (!fs.existsSync(dbDir)) {
-  fs.mkdirSync(dbDir, { recursive: true });
-}
 
 class Database {
   constructor() {
@@ -58,7 +44,7 @@ class Database {
           password_hash TEXT NOT NULL,
           created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )`,
-        
+
         // Temporary email addresses table
         `CREATE TABLE IF NOT EXISTS email_addresses (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -71,7 +57,7 @@ class Database {
           FOREIGN KEY (user_id) REFERENCES users(id),
           UNIQUE(local_part)
         )`,
-        
+
         // Messages table
         `CREATE TABLE IF NOT EXISTS messages (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -178,7 +164,7 @@ class Database {
   async getEmailAddressesByUserId(userId) {
     return new Promise((resolve, reject) => {
       this.db.all(
-        `SELECT * FROM email_addresses 
+        `SELECT * FROM email_addresses
          WHERE user_id = ? AND is_active = 1 AND expires_at > datetime('now')
          ORDER BY created_at DESC`,
         [userId],
@@ -193,7 +179,7 @@ class Database {
   async getEmailAddressByLocalPart(localPart) {
     return new Promise((resolve, reject) => {
       this.db.get(
-        `SELECT * FROM email_addresses 
+        `SELECT * FROM email_addresses
          WHERE local_part = ? AND is_active = 1 AND expires_at > datetime('now')`,
         [localPart],
         (err, row) => {
@@ -234,7 +220,7 @@ class Database {
   async createMessage(emailAddressId, fromAddress, subject, bodyText, bodyHtml, headers) {
     return new Promise((resolve, reject) => {
       this.db.run(
-        `INSERT INTO messages (email_address_id, from_address, subject, body_text, body_html, headers) 
+        `INSERT INTO messages (email_address_id, from_address, subject, body_text, body_html, headers)
          VALUES (?, ?, ?, ?, ?, ?)`,
         [emailAddressId, fromAddress, subject, bodyText, bodyHtml, JSON.stringify(headers)],
         function(err) {
@@ -261,7 +247,7 @@ class Database {
   async getAllMessagesByUserId(userId) {
     return new Promise((resolve, reject) => {
       this.db.all(
-        `SELECT m.*, e.local_part, e.full_address 
+        `SELECT m.*, e.local_part, e.full_address
          FROM messages m
          JOIN email_addresses e ON m.email_address_id = e.id
          WHERE e.user_id = ? AND e.is_active = 1
@@ -280,9 +266,9 @@ class Database {
     return new Promise((resolve, reject) => {
       // First, delete messages for expired addresses
       this.db.run(
-        `DELETE FROM messages 
+        `DELETE FROM messages
          WHERE email_address_id IN (
-           SELECT id FROM email_addresses 
+           SELECT id FROM email_addresses
            WHERE expires_at <= datetime('now')
          )`,
         (err) => {
@@ -291,7 +277,7 @@ class Database {
           } else {
             // Then delete expired addresses
             this.db.run(
-              `DELETE FROM email_addresses 
+              `DELETE FROM email_addresses
                WHERE expires_at <= datetime('now')`,
               function(err2) {
                 if (err2) reject(err2);
