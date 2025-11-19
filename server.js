@@ -614,8 +614,8 @@ chatMessageLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: (req) => {
-    // Use user ID for rate limiting
-    return req.currentUser?.id?.toString() || req.ip;
+    // Use user ID for rate limiting with IPv6-safe fallback
+    return req.currentUser?.id?.toString() || rateLimit.ipKeyGenerator(req);
   },
   skip: (req) => {
     // Skip rate limiting for owner
@@ -630,7 +630,7 @@ chatReadLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: (req) => {
-    return req.currentUser?.id?.toString() || req.ip;
+    return req.currentUser?.id?.toString() || rateLimit.ipKeyGenerator(req);
   }
 });
 
