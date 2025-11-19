@@ -9,7 +9,6 @@
     const notificationsClose = byId('notificationsClose');
     const notificationsList = byId('notificationsList');
     const notificationsBadge = byId('notificationsBadge');
-    const notificationSound = byId('notificationSound');
 
     const tabButtons = document.querySelectorAll('.tab-btn');
     const tabPanes = document.querySelectorAll('.tab-pane');
@@ -51,6 +50,7 @@
     let notificationsInterval = null;
     let chatInterval = null;
     let externalMailInterval = null;
+    let audioContext = null;
 
     document.addEventListener('DOMContentLoaded', () => {
         initTabs();
@@ -236,9 +236,34 @@
     }
 
     function playNotificationSound() {
-        if (!notificationSound) return;
-        notificationSound.currentTime = 0;
-        notificationSound.play().catch(() => {});
+        try {
+            const AudioCtx = window.AudioContext || window.webkitAudioContext;
+            if (!AudioCtx) return;
+            if (!audioContext) {
+                audioContext = new AudioCtx();
+            }
+
+            if (audioContext.state === 'suspended') {
+                audioContext.resume();
+            }
+
+            const duration = 0.15;
+            const ctxNow = audioContext.currentTime;
+            const osc = audioContext.createOscillator();
+            const gain = audioContext.createGain();
+
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(1046.5, ctxNow); // C6 tone
+
+            gain.gain.setValueAtTime(0.18, ctxNow);
+            gain.gain.exponentialRampToValueAtTime(0.0001, ctxNow + duration);
+
+            osc.connect(gain).connect(audioContext.destination);
+            osc.start(ctxNow);
+            osc.stop(ctxNow + duration);
+        } catch (err) {
+            // If audio context is blocked (e.g., by autoplay restrictions), silently skip.
+        }
     }
 
     // ----- Chat -----
