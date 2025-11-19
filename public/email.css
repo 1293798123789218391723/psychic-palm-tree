@@ -1062,6 +1062,42 @@ body.pending-account #approvedContent {
     display: block;
 }
 
+.pill-btn {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 999px;
+    color: #fff;
+    padding: 0.55rem 1rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.pill-btn.active,
+.pill-btn:hover {
+    background: linear-gradient(135deg, #5ba2ff, #a277ff);
+    border-color: transparent;
+    box-shadow: 0 8px 20px rgba(91, 162, 255, 0.25);
+}
+
+.media-tabs {
+    margin-top: 1rem;
+}
+
+.media-tab-nav {
+    display: flex;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+}
+
+.media-tab-pane {
+    display: none;
+}
+
+.media-tab-pane.active {
+    display: block;
+}
+
 .media-grid-wrap {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
