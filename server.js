@@ -178,7 +178,7 @@ app.post('/api/register', async (req, res) => {
   try {
     const { username, password } = req.body;
 
-    if (!isValidUsername(username) || !isValidPassword(password)) {
+    if (!isValidUsername(username) || !isValidPasswordForRegistration(password)) {
       return res.status(400).json({ error: 'Invalid username or password format' });
     }
 
@@ -210,7 +210,7 @@ app.post('/api/login', async (req, res) => {
   try {
     const { username, password } = req.body;
 
-    if (!isValidUsername(username) || !isValidPassword(password)) {
+    if (!isValidUsername(username) || !isValidPasswordForLogin(password)) {
       return res.status(400).json({ error: 'Invalid username or password format' });
     }
 
@@ -246,9 +246,15 @@ function isValidUsername(value) {
   return typeof value === 'string' && USERNAME_REGEX.test(value);
 }
 
-function isValidPassword(value) {
+function isValidPasswordForRegistration(value) {
   return typeof value === 'string' &&
     value.length >= MIN_PASSWORD_LENGTH &&
+    value.length <= MAX_PASSWORD_LENGTH;
+}
+
+function isValidPasswordForLogin(value) {
+  return typeof value === 'string' &&
+    value.length > 0 &&
     value.length <= MAX_PASSWORD_LENGTH;
 }
 
