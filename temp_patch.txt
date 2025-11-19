@@ -1,0 +1,15 @@
+*** Begin Patch
+*** Update File: public/index.css
+@@
+ h1 {
+     font-size: 6rem;
+     font-weight: 200;
+@@
+ }
++
++#greeting {
++    -webkit-user-select: none;
++    -moz-user-select: none;
++    user-select: none;
++}
+*** End Patch

@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LarpGod Control Center</title>
+    <link rel="stylesheet" href="email.css">
+</head>
+<body class="page-dashboard">
+    <div id="particles-js"></div>
+
+    <header class="top-bar--dashboard">
+        <a href="https://larpgod.xyz" class="brand">LarpGod</a>
+        <nav class="top-menu">
+            <a href="/" class="top-link">Home</a>
+            <span class="top-link active">Dashboard</span>
+        </nav>
+    </header>
+
+    <div class="app-shell">
+        <section id="authShell" class="auth-shell">
+            <div class="auth-card" data-mode="login">
+                <div class="auth-tabs">
+                    <button type="button" class="auth-tab active js-auth-switch" data-auth-mode="login">Sign In</button>
+                    <button type="button" class="auth-tab js-auth-switch" data-auth-mode="register">Register</button>
+                </div>
+
+                <h1 id="authTitle">Sign In</h1>
+                <p class="auth-helper">
+                    <span class="helper-text helper-text--login">
+                        Need an account?
+                        <button type="button" class="text-link js-auth-switch" data-auth-mode="register">Register</button>
+                    </span>
+                    <span class="helper-text helper-text--register">
+                        Already have an account?
+                        <button type="button" class="text-link js-auth-switch" data-auth-mode="login">Sign In</button>
+                    </span>
+                </p>
+
+                <form id="loginForm" class="auth-form active" autocomplete="off">
+                    <label for="loginUsername">Username</label>
+                    <input type="text" id="loginUsername" placeholder="yourname" required>
+
+                    <label for="loginPassword">Password</label>
+                    <div class="password-input-wrapper">
+                        <input type="password" id="loginPassword" placeholder="********" required>
+                        <button type="button" class="password-toggle" aria-label="Show password">
+                            <span class="eye-icon">👁️</span>
+                        </button>
+                    </div>
+
+                    <button type="submit" class="primary-btn">Continue</button>
+                    <div id="loginError" class="error"></div>
+                </form>
+
+                <form id="registerForm" class="auth-form" autocomplete="off">
+                    <label for="registerUsername">Username</label>
+                    <input type="text" id="registerUsername" placeholder="pick a username" required>
+
+                    <label for="registerPassword">Password</label>
+                    <div class="password-input-wrapper">
+                        <input type="password" id="registerPassword" placeholder="minimum 6 characters" minlength="6" required>
+                        <button type="button" class="password-toggle" aria-label="Show password">
+                            <span class="eye-icon">👁️</span>
+                        </button>
+                    </div>
+
+                    <button type="submit" class="primary-btn">Create Account</button>
+                    <div id="registerError" class="error"></div>
+                </form>
+            </div>
+        </section>
+
+        <main id="mainContent" class="dashboard-shell" style="display: none;">
+            <header class="dashboard-header dashboard-header--compact">
+                <div>
+                    <p class="eyebrow">LarpGod Control Center</p>
+                    <h2>Account Services</h2>
+                    <p class="tagline">Manage temporary email, media hosting, and deployments in one place.</p>
+                </div>
+                <div class="user-chip">
+                    <span id="usernameDisplay"></span>
+                    <div class="notifications-wrapper">
+                        <button id="notificationsBtn" class="ghost-btn icon-btn" aria-label="Notifications">
+                            <span class="bell-icon">&#128276;</span>
+                            <span id="notificationsBadge" class="badge hidden">0</span>
+                        </button>
+                        <div id="notificationsPanel" class="notifications-panel">
+                            <div class="notifications-header">
+                                <span>Notifications</span>
+                                <button id="notificationsClose" class="ghost-btn tiny">Close</button>
+                            </div>
+                            <div id="notificationsList" class="notifications-list"></div>
+                        </div>
+                    </div>
+                    <button id="logoutBtn" class="ghost-btn">Logout</button>
+                </div>
+            </header>
+
+            <div class="tab-nav">
+                <button class="ghost-btn tab-btn active" data-tab="overview">Overview</button>
+                <button class="ghost-btn tab-btn" data-tab="media">Media</button>
+            </div>
+
+            <div id="tabOverview" class="tab-pane active">
+                <div class="dashboard service-grid">
+                    <section class="chat-panel">
+                        <div class="panel-heading">
+                            <h2>Community Chat</h2>
+                            <span class="panel-meta"><span id="onlineCount">0</span> online</span>
+                        </div>
+                        <div id="chatMessages" class="chat-messages"></div>
+                        <form id="chatForm" class="chat-form">
+                            <input type="text" id="chatInput" placeholder="Say something..." maxlength="200" autocomplete="off">
+                            <button type="submit" class="primary-btn slim">Send</button>
+                        </form>
+                    </section>
+
+                    <section class="messages-section">
+                        <div class="panel-heading">
+                            <h2>Inbox (Catchall)</h2>
+                            <span class="panel-meta">Latest forwards for @larpgod.xyz</span>
+                        </div>
+                        <div id="externalMailInline" class="messages-list"></div>
+                    </section>
+                </div>
+
+                <section class="game-panel">
+                    <div class="panel-heading">
+                        <h2>Tic Tac Toe</h2>
+                        <span class="panel-meta">Matchmaking vs online players</span>
+                    </div>
+                    <div class="game-actions">
+                        <button id="matchmakeBtn" class="primary-btn slim">Find Match</button>
+                        <button id="leaveQueueBtn" class="ghost-btn slim">Leave</button>
+                    </div>
+                    <div id="gameStatus" class="game-status">Queue idle.</div>
+                    <div id="tttBoard" class="ttt-board hidden">
+                        <button data-cell="0"></button>
+                        <button data-cell="1"></button>
+                        <button data-cell="2"></button>
+                        <button data-cell="3"></button>
+                        <button data-cell="4"></button>
+                        <button data-cell="5"></button>
+                        <button data-cell="6"></button>
+                        <button data-cell="7"></button>
+                        <button data-cell="8"></button>
+                    </div>
+                </section>
+
+                <section class="admin-panel" id="adminPanel">
+                    <div class="panel-heading">
+                        <h2>Approval Console</h2>
+                        <span class="panel-meta">username dot only</span>
+                    </div>
+                    <form id="adminApproveForm" class="stack-form">
+                        <label for="adminUsernameInput">Username</label>
+                        <input type="text" id="adminUsernameInput" placeholder="username" required>
+                        <div class="admin-actions">
+                            <button type="submit" class="primary-btn slim">Approve</button>
+                            <button type="button" id="adminRemoveBtn" class="ghost-btn">Remove</button>
+                        </div>
+                        <div id="adminFeedback" class="form-feedback"></div>
+                    </form>
+                    <div class="approved-list">
+                        <h4>Approved Users</h4>
+                        <div id="approvedUsersList" class="media-bucket-list"></div>
+                    </div>
+                    <div class="unapproved-list" style="margin-top: 1.5rem;">
+                        <h4>Pending Approval</h4>
+                        <div id="unapprovedUsersList" class="media-bucket-list"></div>
+                    </div>
+                    <div class="card-like owner-only" id="embedAdminCard">
+                        <div class="panel-heading">
+                            <h3>Global Embed Defaults</h3>
+                            <span class="panel-meta">Used in Discord embeds and copy actions</span>
+                        </div>
+                        <div class="inline-group">
+                            <div>
+                                <label for="embedTitleAdmin">Title</label>
+                                <input type="text" id="embedTitleAdmin" maxlength="120" placeholder="Embed title for all users">
+                            </div>
+                            <div>
+                                <label for="embedDescAdmin">Description</label>
+                                <textarea id="embedDescAdmin" rows="3" maxlength="500" placeholder="Embed description for all users"></textarea>
+                            </div>
+                            <div>
+                                <label for="embedColorAdmin">Accent Color</label>
+                                <input type="color" id="embedColorAdmin" value="#151521">
+                            </div>
+                        </div>
+                        <div class="admin-actions">
+                            <button type="button" id="embedSaveBtn" class="primary-btn slim">Save Embed Defaults</button>
+                            <span id="embedSaveStatus" class="form-feedback"></span>
+                        </div>
+                        <p class="form-helper">Only the owner can change this. Applies to all copied embed links.</p>
+                    </div>
+                </section>
+            </div>
+
+            <div id="tabMedia" class="tab-pane">
+                <section class="media-hosting-section">
+                    <div class="panel-heading">
+                        <h2>Media Hosting</h2>
+                        <span class="panel-meta">Shared + private storage</span>
+                    </div>
+
+                    <div id="mediaBucketsList" class="media-bucket-summary"></div>
+
+                    <div class="media-form-grid">
+                    <form id="mediaUploadForm" class="stack-form media-upload-form" enctype="multipart/form-data">
+                        <label for="mediaBucketSelect">Destination</label>
+                        <select id="mediaBucketSelect" required></select>
+
+                        <label for="mediaAssetName">Title (optional)</label>
+                        <input type="text" id="mediaAssetName" placeholder="auto from filename">
+
+                        <label class="file-label" for="mediaAssetFile">Choose File</label>
+                        <input type="file" id="mediaAssetFile" required>
+
+                        <button type="submit" class="primary-btn">Upload</button>
+                        <div id="mediaUploadFeedback" class="form-feedback"></div>
+                    </form>
+
+                        <div class="embed-settings card-like">
+                            <div class="panel-heading">
+                                <h4>Embed defaults (yours)</h4>
+                                <span class="panel-meta">Applied when copying embed links</span>
+                            </div>
+                            <label for="embedTitle">Title</label>
+                            <input type="text" id="embedTitle" placeholder="Custom title">
+
+                            <label for="embedDesc">Description</label>
+                            <textarea id="embedDesc" rows="3" placeholder="Add a description"></textarea>
+
+                            <label for="embedColor">Accent Color</label>
+                            <input type="color" id="embedColor" value="#151521">
+                            <p class="form-helper">Saved only in your browser and added to embed URLs you copy.</p>
+                        </div>
+                    </div>
+
+                    <div class="media-grid-wrap">
+                        <div class="media-grid-column">
+                            <div class="panel-heading">
+                                <h4>Shared Media</h4>
+                                <span class="panel-meta">Visible to everyone</span>
+                            </div>
+                            <div id="sharedAssetsGrid" class="media-grid"></div>
+                        </div>
+                        <div class="media-grid-column">
+                            <div class="panel-heading">
+                                <h4>Your Media</h4>
+                                <span class="panel-meta">Private to you</span>
+                            </div>
+                            <div id="privateAssetsGrid" class="media-grid"></div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <div id="messageModal" class="modal">
+        <div class="modal-content large">
+            <span class="close">&times;</span>
+            <div id="messageContent"></div>
+        </div>
+    </div>
+
+    <div id="mediaViewer" class="media-viewer hidden">
+        <div class="media-viewer__backdrop"></div>
+        <div class="media-viewer__content">
+            <button id="mediaViewerClose" class="ghost-btn tiny media-viewer__close">Close</button>
+            <div id="mediaViewerTitle" class="media-viewer__title"></div>
+            <div id="mediaViewerBody" class="media-viewer__body"></div>
+            <div class="media-viewer__actions">
+                <button id="mediaViewerCopy" class="ghost-btn tiny">Copy URL</button>
+                <a id="mediaViewerOpen" class="ghost-btn tiny" href="#" target="_blank" rel="noopener">Open</a>
+            </div>
+        </div>
+    </div>
+
+    <audio id="notificationSound" preload="auto">
+        <source src="https://cdn.pixabay.com/audio/2025/09/02/audio_4e70a465f7.mp3" type="audio/mpeg">
+    </audio>
+
+    <script src="https://cdn.jsdelivr.net/npm/particles.js@2.0.0/particles.min.js"></script>
+    <script src="/config.js"></script>
+    <script src="email.js"></script>
+    <script src="dashboard.js"></script>
+</body>
+</html>

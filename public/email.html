@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Temporary Email - LarpGod.xyz</title>
+    <meta http-equiv="refresh" content="0; url=/dashboard">
+    <link rel="stylesheet" href="email.css">
+    <script>window.location.href = '/dashboard';</script>
+</head>
+<body>
+    <div id="particles-js"></div>
+
+    <div class="app-shell">
+        <header class="top-bar--dashboard">
+            <a href="https://larpgod.xyz" class="brand">LarpGod</a>
+            <nav class="top-menu">
+                <a href="/" class="top-link">Home</a>
+                <span class="top-link active">Email</span>
+                <a href="dashboard.html" class="top-link">Dashboard</a>
+            </nav>
+            <a class="login-button" href="dashboard.html">Dashboard</a>
+        </header>
+
+        <section id="authShell" class="auth-shell">
+            <div class="auth-card" data-mode="login">
+                <div class="auth-tabs">
+                    <button type="button" class="auth-tab active js-auth-switch" data-auth-mode="login">Sign In</button>
+                    <button type="button" class="auth-tab js-auth-switch" data-auth-mode="register">Register</button>
+                </div>
+
+                <h1 id="authTitle">Sign In</h1>
+                <p class="auth-helper">
+                    <span class="helper-text helper-text--login">
+                        Need an account?
+                        <button type="button" class="text-link js-auth-switch" data-auth-mode="register">Register</button>
+                    </span>
+                    <span class="helper-text helper-text--register">
+                        Already have an account?
+                        <button type="button" class="text-link js-auth-switch" data-auth-mode="login">Sign In</button>
+                    </span>
+                </p>
+
+                <form id="loginForm" class="auth-form active" autocomplete="off">
+                    <label for="loginUsername">Username</label>
+                    <input type="text" id="loginUsername" placeholder="yourname" required>
+
+                    <label for="loginPassword">Password</label>
+                    <div class="password-input-wrapper">
+                        <input type="password" id="loginPassword" placeholder="********" required>
+                        <button type="button" class="password-toggle" aria-label="Show password">
+                            <span class="eye-icon">👁️</span>
+                        </button>
+                    </div>
+
+                    <button type="submit" class="primary-btn">Continue</button>
+                    <div id="loginError" class="error"></div>
+                </form>
+
+                <form id="registerForm" class="auth-form" autocomplete="off">
+                    <label for="registerUsername">Username</label>
+                    <input type="text" id="registerUsername" placeholder="pick a username" required>
+
+                    <label for="registerPassword">Password</label>
+                    <div class="password-input-wrapper">
+                        <input type="password" id="registerPassword" placeholder="minimum 6 characters" minlength="6" required>
+                        <button type="button" class="password-toggle" aria-label="Show password">
+                            <span class="eye-icon">👁️</span>
+                        </button>
+                    </div>
+
+                    <button type="submit" class="primary-btn">Create Account</button>
+                    <div id="registerError" class="error"></div>
+                </form>
+            </div>
+        </section>
+
+        <main id="mainContent" class="dashboard-shell" style="display: none;">
+            <header class="dashboard-header">
+                <div>
+                    <p class="eyebrow">LarpGod Mail</p>
+                    <h2>Temporary Inbox</h2>
+                </div>
+                <div class="user-chip">
+                    <span id="usernameDisplay"></span>
+                    <button id="logoutBtn" class="ghost-btn">Logout</button>
+                </div>
+            </header>
+
+            <div id="pendingApprovalCard" class="pending-card">
+                <h2>Waiting For Approval</h2>
+                <p>Hang tight—an admin still needs to approve your username before the tools unlock.</p>
+            </div>
+
+            <div id="approvedContent">
+                <div class="dashboard">
+                    <section class="email-addresses-section">
+                        <div class="panel-heading">
+                            <h2>Your Temporary Email Addresses</h2>
+                            <span class="panel-meta">Provision inboxes</span>
+                        </div>
+                        <div class="create-email-form">
+                            <label>
+                                TTL (hours)
+                                <input type="number" id="ttlInput" min="1" max="24" value="5">
+                            </label>
+                            <button type="button" id="createEmailBtn" class="primary-btn slim">Create New Email</button>
+                        </div>
+                        <div id="emailAddressesList" class="email-list"></div>
+                    </section>
+
+                    <section class="messages-section">
+                        <div class="panel-heading">
+                            <h2>Messages</h2>
+                            <span class="panel-meta">Live feed</span>
+                        </div>
+                        <div class="filter-buttons">
+                            <button type="button" id="showAllMessagesBtn" class="ghost-btn active">All Messages</button>
+                            <button type="button" id="refreshMessagesBtn" class="ghost-btn">Refresh</button>
+                        </div>
+                        <div id="messagesList" class="messages-list"></div>
+                    </section>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div id="messageModal" class="modal">
+        <div class="modal-content large">
+            <span class="close">&times;</span>
+            <div id="messageContent"></div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/particles.js@2.0.0/particles.min.js"></script>
+    <script src="/config.js"></script>
+    <script src="email.js"></script>
+</body>
+</html>
