@@ -33,10 +33,17 @@ const MAX_PASSWORD_LENGTH = 128;
 const OWNER_USERNAME = (process.env.OWNER_USERNAME || 'dot').toLowerCase();
 const MEDIA_ROOT = path.join(__dirname, 'media');
 const MEDIA_SHARED_DIR = path.join(MEDIA_ROOT, 'shared');
-const MEDIA_USERS_DIR = path.join(MEDIA_ROOT, 'users');
+let MEDIA_USERS_DIR = process.env.MEDIA_USERS_DIR || '/downloads';
 const MEDIA_MAX_FILE_MB = parseInt(process.env.MEDIA_MAX_FILE_MB || '100', 10);
 const PUBLIC_URL = process.env.PUBLIC_URL || '';
 const EMBED_PREFS_FILE = path.join(__dirname, 'db', 'embed-prefs.json');
+
+try {
+  ensureDirSync(MEDIA_USERS_DIR);
+} catch (err) {
+  console.warn(`Failed to initialize user media directory at ${MEDIA_USERS_DIR}: ${err.message}`);
+  MEDIA_USERS_DIR = path.join(MEDIA_ROOT, 'users');
+}
 
 ensureDirSync(MEDIA_SHARED_DIR);
 ensureDirSync(MEDIA_USERS_DIR);
@@ -44,12 +51,15 @@ ensureDirSync(path.dirname(EMBED_PREFS_FILE));
 
 let globalEmbedPrefs = loadEmbedPrefsFromDisk();
 
-app.use('/media', express.static(MEDIA_ROOT, {
+const mediaStaticOptions = {
   setHeaders: (res) => {
     res.set('Access-Control-Allow-Origin', '*');
     res.set('Cross-Origin-Resource-Policy', 'cross-origin');
   }
-}));
+};
+
+app.use('/media/users', express.static(MEDIA_USERS_DIR, mediaStaticOptions));
+app.use('/media', express.static(MEDIA_ROOT, mediaStaticOptions));
 
 // Media embed (Discord-friendly)
 app.get('/media/embed/shared/:file', async (req, res) => {
@@ -114,8 +124,10 @@ app.get('/config.js', (req, res) => {
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Initialize database
-database.init().then(() => {
+database.init().then(async () => {
   console.log('Database initialized');
+
+  await ensureMediaDirsForApprovedUsers();
   
   // Start email receiver
   emailReceiver.start();
@@ -166,7 +178,7 @@ app.post('/api/register', async (req, res) => {
   try {
     const { username, password } = req.body;
 
-    if (!isValidUsername(username) || !isValidPassword(password)) {
+    if (!isValidUsername(username) || !isValidPasswordForRegistration(password)) {
       return res.status(400).json({ error: 'Invalid username or password format' });
     }
 
@@ -198,7 +210,7 @@ app.post('/api/login', async (req, res) => {
   try {
     const { username, password } = req.body;
 
-    if (!isValidUsername(username) || !isValidPassword(password)) {
+    if (!isValidUsername(username) || !isValidPasswordForLogin(password)) {
       return res.status(400).json({ error: 'Invalid username or password format' });
     }
 
@@ -234,9 +246,15 @@ function isValidUsername(value) {
   return typeof value === 'string' && USERNAME_REGEX.test(value);
 }
 
-function isValidPassword(value) {
+function isValidPasswordForRegistration(value) {
   return typeof value === 'string' &&
     value.length >= MIN_PASSWORD_LENGTH &&
+    value.length <= MAX_PASSWORD_LENGTH;
+}
+
+function isValidPasswordForLogin(value) {
+  return typeof value === 'string' &&
+    value.length > 0 &&
     value.length <= MAX_PASSWORD_LENGTH;
 }
 
@@ -530,13 +548,14 @@ app.get('/api/admin/approvals', auth.authenticateToken, attachCurrentUser, requi
 
 app.post('/api/admin/approvals', auth.authenticateToken, attachCurrentUser, requireOwner, async (req, res) => {
   try {
-    const { username } = req.body;
+    const username = (req.body?.username || '').trim();
 
     if (!isValidUsername(username)) {
       return res.status(400).json({ error: 'Invalid username format' });
     }
 
     await approvals.addUser(username);
+    await ensureMediaDirForExistingApprovedUser(username);
     res.json({ message: 'User approved', username: username.toLowerCase() });
   } catch (err) {
     console.error('Approve user error:', err);
@@ -601,8 +620,8 @@ chatMessageLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: (req) => {
-    // Use user ID for rate limiting
-    return req.currentUser?.id?.toString() || req.ip;
+    // Use user ID for rate limiting with IPv6-safe fallback
+    return req.currentUser?.id?.toString() || rateLimit.ipKeyGenerator(req);
   },
   skip: (req) => {
     // Skip rate limiting for owner
@@ -617,7 +636,7 @@ chatReadLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: (req) => {
-    return req.currentUser?.id?.toString() || req.ip;
+    return req.currentUser?.id?.toString() || rateLimit.ipKeyGenerator(req);
   }
 });
 
@@ -772,9 +791,7 @@ async function getMediaBucketsForUser(user) {
     urlPrefix: '/media/shared'
   };
 
-  const userSlug = slugifyMedia(user.username);
-  const userDir = path.join(MEDIA_USERS_DIR, userSlug);
-  await fs.promises.mkdir(userDir, { recursive: true });
+  const { dir: userDir, slug: userSlug } = await ensureUserMediaDirForUsername(user.username);
 
   const personal = {
     id: `user-${userSlug}`,
@@ -801,8 +818,7 @@ async function resolveBucketInfo(bucketId, user) {
 
   const userSlug = slugifyMedia(user.username);
   if (normalized === 'private' || normalized === userSlug || normalized === `user-${userSlug}`) {
-    const dir = path.join(MEDIA_USERS_DIR, userSlug);
-    await fs.promises.mkdir(dir, { recursive: true });
+    const { dir } = await ensureUserMediaDirForUsername(user.username);
     return {
       id: `user-${userSlug}`,
       name: `${user.username}'s Media`,
@@ -871,6 +887,51 @@ function slugifyMedia(value) {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '') || 'media';
+}
+
+async function ensureUserMediaDirForUsername(username) {
+  if (!username) {
+    return null;
+  }
+  const slug = slugifyMedia(username);
+  const dir = path.join(MEDIA_USERS_DIR, slug);
+  await fs.promises.mkdir(dir, { recursive: true });
+  return { dir, slug };
+}
+
+async function ensureMediaDirForExistingApprovedUser(username) {
+  try {
+    const user = await database.getUserByUsername(username);
+    if (user) {
+      await ensureUserMediaDirForUsername(user.username);
+    }
+  } catch (err) {
+    console.error(`Failed to ensure media directory for ${username}:`, err);
+  }
+}
+
+async function ensureMediaDirsForApprovedUsers() {
+  try {
+    const [users, approvedUsers] = await Promise.all([
+      database.getAllUsers(),
+      approvals.listUsers()
+    ]);
+    const ownerLower = OWNER_USERNAME.toLowerCase();
+    const approvedSet = new Set(approvedUsers.map((name) => name.toLowerCase()));
+
+    for (const user of users) {
+      const normalized = (user.username || '').toLowerCase();
+      if (normalized === ownerLower || approvedSet.has(normalized)) {
+        await ensureUserMediaDirForUsername(user.username);
+      }
+    }
+
+    if (!approvedSet.has(ownerLower)) {
+      await ensureUserMediaDirForUsername(OWNER_USERNAME);
+    }
+  } catch (err) {
+    console.error('Failed to ensure media directories for approved users:', err);
+  }
 }
 
 function sanitizeBucketInfo(bucket) {
@@ -963,9 +1024,6 @@ function renderEmbedPage(fileUrl, fileName, query = {}) {
   </head>
   <body>
     <video src="${absoluteUrl}" controls autoplay loop playsinline></video>
-    <script>
-      document.addEventListener('click', ()=>{const audio=new Audio('https://cdn.pixabay.com/audio/2025/09/02/audio_4e70a465f7.mp3');audio.play().catch(()=>{});},{once:true});
-    </script>
   </body>
   </html>`;
 }
