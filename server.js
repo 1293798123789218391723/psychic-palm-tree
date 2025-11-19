@@ -37,6 +37,8 @@ let MEDIA_USERS_DIR = process.env.MEDIA_USERS_DIR || '/downloads';
 const MEDIA_MAX_FILE_MB = parseInt(process.env.MEDIA_MAX_FILE_MB || '100', 10);
 const PUBLIC_URL = process.env.PUBLIC_URL || '';
 const EMBED_PREFS_FILE = path.join(__dirname, 'db', 'embed-prefs.json');
+const ONE_YEAR_SECONDS = 31536000;
+const NO_CACHE_HEADER = 'no-cache, no-store, must-revalidate';
 
 try {
   ensureDirSync(MEDIA_USERS_DIR);
@@ -61,6 +63,23 @@ const mediaStaticOptions = {
 app.use('/media/users', express.static(MEDIA_USERS_DIR, mediaStaticOptions));
 app.use('/media', express.static(MEDIA_ROOT, mediaStaticOptions));
 
+function applyNoCache(res) {
+  res.set('Cache-Control', NO_CACHE_HEADER);
+  res.set('Pragma', 'no-cache');
+  res.set('Expires', '0');
+}
+
+const publicStaticOptions = {
+  setHeaders: (res, servedPath) => {
+    if (servedPath.endsWith('.html')) {
+      applyNoCache(res);
+      return;
+    }
+
+    res.set('Cache-Control', `public, max-age=${ONE_YEAR_SECONDS}, immutable`);
+  }
+};
+
 // Media embed (Discord-friendly)
 app.get('/media/embed/shared/:file', async (req, res) => {
   try {
@@ -68,6 +87,7 @@ app.get('/media/embed/shared/:file', async (req, res) => {
     const filePath = path.join(MEDIA_SHARED_DIR, fileName);
     await fs.promises.access(filePath, fs.constants.R_OK);
     const fileUrl = `/media/shared/${encodeURIComponent(fileName)}`;
+    applyNoCache(res);
     return res.type('text/html').send(renderEmbedPage(fileUrl, fileName, req.query));
   } catch {
     return res.status(404).send('Not found');
@@ -82,6 +102,7 @@ app.get('/media/embed/users/:userSlug/:file', async (req, res) => {
     const filePath = path.join(dir, fileName);
     await fs.promises.access(filePath, fs.constants.R_OK);
     const fileUrl = `/media/users/${encodeURIComponent(userSlug)}/${encodeURIComponent(fileName)}`;
+    applyNoCache(res);
     return res.type('text/html').send(renderEmbedPage(fileUrl, fileName, req.query));
   } catch {
     return res.status(404).send('Not found');
@@ -116,12 +137,22 @@ const mediaUpload = multer({
 // Middleware
 app.use(cors());
 app.use(bodyParser.json());
+
+app.use((req, res, next) => {
+  if (req.method === 'GET' && req.path.endsWith('.html')) {
+    applyNoCache(res);
+  }
+  next();
+});
+
 app.get('/config.js', (req, res) => {
+  applyNoCache(res);
   res.type('application/javascript').send(`window.__LARP_CONFIG__ = ${JSON.stringify({
     ownerUsername: OWNER_USERNAME,
   })};`);
 });
-app.use(express.static(path.join(__dirname, 'public')));
+
+app.use(express.static(path.join(__dirname, 'public'), publicStaticOptions));
 
 // Initialize database
 database.init().then(async () => {
@@ -156,6 +187,7 @@ database.init().then(async () => {
 
 // Blank homepage
 app.get('/', (req, res) => {
+  applyNoCache(res);
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
@@ -170,6 +202,7 @@ app.get('/email.html', (req, res) => {
 
 // Dashboard page
 app.get('/dashboard', (req, res) => {
+  applyNoCache(res);
   res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
 });
 
