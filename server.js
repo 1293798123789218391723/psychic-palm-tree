@@ -24,7 +24,7 @@ require('dotenv').config();
 let chatMessageLimiter, chatReadLimiter;
 
 const app = express();
-const PORT = process.env.PORT || 80;
+const PORT = process.env.PORT || 3000;
 const HOST = process.env.HOST || 'localhost';
 const DOMAIN = process.env.DOMAIN || 'larpgod.xyz';
 const USERNAME_REGEX = /^[a-zA-Z0-9_]{3,32}$/;
