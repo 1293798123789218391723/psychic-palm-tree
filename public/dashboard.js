@@ -53,6 +53,7 @@
     let chatInterval = null;
     let externalMailInterval = null;
     let audioContext = null;
+    let activeMediaElement = null;
 
     document.addEventListener('DOMContentLoaded', () => {
         initTabs();
@@ -828,6 +829,7 @@
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') closeMediaViewer();
         });
+        document.addEventListener('fullscreenchange', handleFullscreenChange);
     }
 
     function openMediaViewer(url, name) {
@@ -842,6 +844,7 @@
             el.src = url;
             el.controls = true;
             el.autoplay = true;
+            el.playsInline = true;
         } else if (isImage(lower)) {
             el = document.createElement('img');
             el.src = url;
@@ -852,15 +855,37 @@
             el.textContent = 'Preview not available for this file type.';
         }
 
+        activeMediaElement = el;
         mediaViewerBody.appendChild(el);
         mediaViewerCopy.dataset.url = url || '';
         mediaViewerOpen.href = url || '#';
         mediaViewer.classList.remove('hidden');
+        document.body.classList.add('has-modal-open');
     }
 
     function closeMediaViewer() {
+        const fullscreenEl = document.fullscreenElement;
+        if (fullscreenEl && mediaViewer?.contains(fullscreenEl)) {
+            document.exitFullscreen().catch(() => {});
+        }
+        if (activeMediaElement?.pause) {
+            activeMediaElement.pause();
+        }
+        activeMediaElement = null;
         mediaViewer?.classList.add('hidden');
         if (mediaViewerBody) mediaViewerBody.innerHTML = '';
+        document.body.classList.remove('has-modal-open');
+    }
+
+    function handleFullscreenChange() {
+        if (!document.fullscreenElement) {
+            document.body.classList.remove('is-media-fullscreen');
+            return;
+        }
+
+        if (mediaViewer?.contains(document.fullscreenElement)) {
+            document.body.classList.add('is-media-fullscreen');
+        }
     }
 
     // ----- Helpers -----

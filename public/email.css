@@ -24,6 +24,10 @@ body {
     overflow-x: hidden;
 }
 
+body.has-modal-open {
+    overflow: hidden;
+}
+
 #particles-js {
     position: fixed;
     inset: 0;
@@ -448,15 +452,16 @@ button {
 }
 
 .dashboard-shell {
-    width: min(1200px, 100%);
+    width: min(1240px, 100%);
     display: flex;
     flex-direction: column;
-    gap: 1.5rem;
+    gap: 1.25rem;
+    margin: 0 auto 2rem;
 }
 
 .dashboard-header {
-    background: var(--card-bg);
-    border: 1px solid var(--card-border);
+    background: linear-gradient(120deg, rgba(91, 162, 255, 0.16), rgba(7, 8, 37, 0.9));
+    border: 1px solid rgba(91, 162, 255, 0.2);
     border-radius: 22px;
     padding: 1.8rem;
     display: flex;
@@ -469,6 +474,7 @@ button {
     color: var(--text-muted);
     margin-top: 0.35rem;
     max-width: 520px;
+    line-height: 1.6;
 }
 
 .eyebrow {
@@ -508,13 +514,47 @@ button {
 
 .dashboard {
     display: grid;
-    gap: 1.5rem;
-    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 1.25rem;
+    grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+}
+
+.service-grid {
+    display: grid;
+    grid-template-columns: 1.6fr 1.1fr;
+    gap: 1.25rem;
+    align-items: start;
+}
+
+.service-grid section,
+.game-panel,
+.admin-panel,
+.media-hosting-section {
+    background: linear-gradient(145deg, rgba(12, 14, 35, 0.95), rgba(7, 8, 28, 0.9));
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.panel-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+}
+
+.panel-heading h2,
+.panel-heading h3,
+.panel-heading h4 {
+    margin: 0;
+}
+
+.panel-meta {
+    color: var(--text-muted);
+    font-size: 0.85rem;
 }
 
 section {
-    background: var(--card-bg);
-    border: 1px solid var(--card-border);
+    background: linear-gradient(145deg, rgba(12, 14, 35, 0.95), rgba(7, 8, 28, 0.9));
+    border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 20px;
     padding: 1.5rem;
     box-shadow: 0 25px 55px rgba(4, 5, 18, 0.5);
@@ -1049,9 +1089,28 @@ body.pending-account #approvedContent {
 }
 
 .tab-nav {
-    display: flex;
+    display: inline-flex;
     gap: 0.5rem;
     margin: 1rem 0;
+    padding: 0.35rem;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 999px;
+}
+
+.tab-nav .tab-btn {
+    border-radius: 999px;
+    padding: 0.65rem 1.4rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 0.75rem;
+    border: 1px solid transparent;
+}
+
+.tab-nav .tab-btn.active {
+    border-color: rgba(91, 162, 255, 0.4);
+    background: linear-gradient(135deg, rgba(91, 162, 255, 0.18), rgba(60, 123, 255, 0.16));
+    box-shadow: 0 8px 20px rgba(91, 162, 255, 0.2);
 }
 
 .tab-pane {
@@ -1075,7 +1134,7 @@ body.pending-account #approvedContent {
 .pill-btn.active,
 .pill-btn:hover {
     background: linear-gradient(135deg, #5ba2ff, #a277ff);
-    border-color: transparent;
+    border-color: rgba(91, 162, 255, 0.35);
     box-shadow: 0 8px 20px rgba(91, 162, 255, 0.25);
 }
 
@@ -1326,6 +1385,10 @@ body.pending-account #approvedContent {
 
 .media-viewer.hidden {
     display: none !important;
+}
+
+body.is-media-fullscreen #particles-js {
+    opacity: 0;
 }
 
 .media-viewer__backdrop {
