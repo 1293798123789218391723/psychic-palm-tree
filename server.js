@@ -88,7 +88,10 @@ app.get('/media/embed/shared/:file', async (req, res) => {
     await fs.promises.access(filePath, fs.constants.R_OK);
     const fileUrl = `/media/shared/${encodeURIComponent(fileName)}`;
     applyNoCache(res);
-    return res.type('text/html').send(renderEmbedPage(fileUrl, fileName, req.query));
+    // Set proper content-type for Discord
+    res.type('text/html');
+    res.set('X-Content-Type-Options', 'nosniff');
+    return res.send(renderEmbedPage(fileUrl, fileName, req.query));
   } catch {
     return res.status(404).send('Not found');
   }
@@ -103,7 +106,10 @@ app.get('/media/embed/users/:userSlug/:file', async (req, res) => {
     await fs.promises.access(filePath, fs.constants.R_OK);
     const fileUrl = `/media/users/${encodeURIComponent(userSlug)}/${encodeURIComponent(fileName)}`;
     applyNoCache(res);
-    return res.type('text/html').send(renderEmbedPage(fileUrl, fileName, req.query));
+    // Set proper content-type for Discord
+    res.type('text/html');
+    res.set('X-Content-Type-Options', 'nosniff');
+    return res.send(renderEmbedPage(fileUrl, fileName, req.query));
   } catch {
     return res.status(404).send('Not found');
   }
@@ -127,10 +133,12 @@ const mediaStorage = multer.diskStorage({
   }
 });
 
+// Note: Multer doesn't support dynamic limits per user, so we set a high limit
+// and check the actual file size in middleware (checkFileSizeLimit) for non-owner users
 const mediaUpload = multer({
   storage: mediaStorage,
   limits: {
-    fileSize: MEDIA_MAX_FILE_MB * 1024 * 1024
+    fileSize: 10 * 1024 * 1024 * 1024 // 10GB default (effectively unlimited for owner "dot", will check in middleware for others)
   }
 });
 
@@ -453,7 +461,30 @@ app.get('/api/media/buckets/:bucketId/assets', auth.authenticateToken, attachCur
   }
 });
 
-app.post('/api/media/upload', auth.authenticateToken, attachCurrentUser, requireApprovedUser, resolveMediaBucket, mediaUpload.single('file'), async (req, res) => {
+// Middleware to check file size limit (except for owner)
+function checkFileSizeLimit(req, res, next) {
+  if (!req.file) {
+    return next();
+  }
+  
+  // Remove file size limit for user "dot"
+  if (req.currentUser && isOwnerUsername(req.currentUser.username)) {
+    return next(); // No limit check for owner
+  }
+  
+  const fileSizeMB = req.file.size / (1024 * 1024);
+  if (fileSizeMB > MEDIA_MAX_FILE_MB) {
+    // Clean up the uploaded file
+    fs.unlink(req.file.path, () => {});
+    return res.status(400).json({ 
+      error: `File size exceeds limit of ${MEDIA_MAX_FILE_MB}MB. Your file is ${fileSizeMB.toFixed(2)}MB.` 
+    });
+  }
+  
+  next();
+}
+
+app.post('/api/media/upload', auth.authenticateToken, attachCurrentUser, requireApprovedUser, resolveMediaBucket, mediaUpload.single('file'), checkFileSizeLimit, async (req, res) => {
   try {
     if (!req.file || !req.mediaBucketInfo) {
       return res.status(400).json({ error: 'File upload failed' });
@@ -497,6 +528,81 @@ app.delete('/api/media/:bucketId/assets/:fileName', auth.authenticateToken, atta
     res.status(500).json({ error: 'Delete failed' });
   }
 });
+
+// File hosting features - Get file info
+app.get('/api/media/:bucketId/assets/:fileName/info', auth.authenticateToken, attachCurrentUser, requireApprovedUser, async (req, res) => {
+  try {
+    const bucketInfo = await resolveBucketInfo(req.params.bucketId, req.currentUser);
+    if (bucketInfo.type === 'private' && bucketInfo.ownerSlug !== slugifyMedia(req.currentUser.username)) {
+      return res.status(403).json({ error: 'Not allowed' });
+    }
+    const fileName = path.basename(req.params.fileName);
+    const filePath = path.join(bucketInfo.dir, fileName);
+    
+    const stats = await fs.promises.stat(filePath);
+    const ext = path.extname(fileName);
+    const mimeType = getMimeType(fileName);
+    
+    res.json({
+      name: fileName,
+      size: stats.size,
+      sizeFormatted: formatBytes(stats.size),
+      mimeType: mimeType,
+      extension: ext,
+      createdAt: stats.birthtime,
+      updatedAt: stats.mtime,
+      url: absoluteResourceUrl(req, `${bucketInfo.urlPrefix}/${encodeURIComponent(fileName)}`),
+      embedUrl: absoluteResourceUrl(req, bucketInfo.type === 'shared'
+        ? `/media/embed/shared/${encodeURIComponent(fileName)}`
+        : `/media/embed/users/${encodeURIComponent(bucketInfo.ownerSlug || '')}/${encodeURIComponent(fileName)}`),
+      bucketId: bucketInfo.id,
+      bucketType: bucketInfo.type
+    });
+  } catch (err) {
+    if (err.code === 'ENOENT') {
+      return res.status(404).json({ error: 'File not found' });
+    }
+    console.error('Get file info error:', err);
+    res.status(500).json({ error: 'Failed to get file info' });
+  }
+});
+
+// File hosting features - Direct download endpoint
+app.get('/api/media/:bucketId/assets/:fileName/download', auth.authenticateToken, attachCurrentUser, requireApprovedUser, async (req, res) => {
+  try {
+    const bucketInfo = await resolveBucketInfo(req.params.bucketId, req.currentUser);
+    if (bucketInfo.type === 'private' && bucketInfo.ownerSlug !== slugifyMedia(req.currentUser.username)) {
+      return res.status(403).json({ error: 'Not allowed' });
+    }
+    const fileName = path.basename(req.params.fileName);
+    const filePath = path.join(bucketInfo.dir, fileName);
+    
+    await fs.promises.access(filePath, fs.constants.R_OK);
+    
+    const mimeType = getMimeType(fileName);
+    res.setHeader('Content-Type', mimeType);
+    res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(fileName)}"`);
+    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    
+    return res.sendFile(path.resolve(filePath));
+  } catch (err) {
+    if (err.code === 'ENOENT') {
+      return res.status(404).json({ error: 'File not found' });
+    }
+    console.error('Download file error:', err);
+    res.status(500).json({ error: 'Download failed' });
+  }
+});
+
+// Helper function to format bytes
+function formatBytes(bytes, decimals = 2) {
+  if (bytes === 0) return '0 Bytes';
+  const k = 1024;
+  const dm = decimals < 0 ? 0 : decimals;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+}
 
 app.get('/api/tictactoe/status', auth.authenticateToken, attachCurrentUser, requireApprovedUser, (req, res) => {
   res.json(buildGameResponse(req.currentUser));
@@ -909,9 +1015,27 @@ async function resolveMediaBucket(req, res, next) {
 }
 
 function generateMediaKey() {
-  const stamp = Date.now().toString();
-  const random = Math.random().toString().slice(2, 8);
-  return `67${stamp}${random}67`;
+  // Choose pattern: either "67" or "41"
+  const pattern = Math.random() < 0.5 ? '67' : '41';
+  
+  // Choose length: 4, 5, or 6 digits
+  const length = 4 + Math.floor(Math.random() * 3); // 4, 5, or 6
+  
+  // Generate random digits for remaining positions
+  const remaining = length - 2;
+  let randomDigits = '';
+  for (let i = 0; i < remaining; i++) {
+    randomDigits += Math.floor(Math.random() * 10).toString();
+  }
+  
+  // Insert pattern at random position
+  const positions = [];
+  for (let i = 0; i <= randomDigits.length; i++) {
+    positions.push(i);
+  }
+  const insertPos = positions[Math.floor(Math.random() * positions.length)];
+  
+  return randomDigits.slice(0, insertPos) + pattern + randomDigits.slice(insertPos);
 }
 
 function slugifyMedia(value) {
@@ -1021,6 +1145,25 @@ function saveEmbedPrefsToDisk(prefs) {
   }
 }
 
+function getMimeType(fileName) {
+  const ext = (path.extname(fileName || '') || '').toLowerCase();
+  const mimeTypes = {
+    '.png': 'image/png',
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.gif': 'image/gif',
+    '.webp': 'image/webp',
+    '.avif': 'image/avif',
+    '.svg': 'image/svg+xml',
+    '.mp4': 'video/mp4',
+    '.webm': 'video/webm',
+    '.ogg': 'video/ogg',
+    '.mov': 'video/quicktime',
+    '.m4v': 'video/x-m4v'
+  };
+  return mimeTypes[ext] || 'application/octet-stream';
+}
+
 function renderEmbedPage(fileUrl, fileName, query = {}) {
   const defaults = globalEmbedPrefs || { title: '', desc: '', color: '#151521' };
   const merged = sanitizeEmbedPrefs({
@@ -1035,6 +1178,7 @@ function renderEmbedPage(fileUrl, fileName, query = {}) {
   const ext = (path.extname(fileName || '') || '').toLowerCase();
   const isImage = /\.(png|jpe?g|gif|webp|avif|svg)$/i.test(ext);
   const isVideo = /\.(mp4|webm|ogg|mov|m4v)$/i.test(ext);
+  const mimeType = getMimeType(fileName);
 
   const commonMeta = `
     <meta charset="UTF-8">
@@ -1044,10 +1188,12 @@ function renderEmbedPage(fileUrl, fileName, query = {}) {
     <meta property="og:description" content="${description}">
   `;
 
+  // For images, ensure we ONLY have image meta tags and NO video tags
   const imageMeta = isImage ? `
     <meta property="og:type" content="image">
     <meta property="og:image" content="${absoluteUrl}">
     <meta property="og:image:secure_url" content="${absoluteUrl}">
+    <meta property="og:image:type" content="${mimeType}">
     <meta property="og:image:alt" content="${title}">
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="${title}">
@@ -1060,7 +1206,7 @@ function renderEmbedPage(fileUrl, fileName, query = {}) {
     <meta property="og:video" content="${absoluteUrl}">
     <meta property="og:video:url" content="${absoluteUrl}">
     <meta property="og:video:secure_url" content="${absoluteUrl}">
-    <meta property="og:video:type" content="video/mp4">
+    <meta property="og:video:type" content="${mimeType}">
     <meta property="og:video:width" content="720">
     <meta property="og:video:height" content="1280">
     <meta name="twitter:card" content="player">
