@@ -39,6 +39,7 @@ const PUBLIC_URL = process.env.PUBLIC_URL || '';
 const EMBED_PREFS_FILE = path.join(__dirname, 'db', 'embed-prefs.json');
 const ONE_YEAR_SECONDS = 31536000;
 const NO_CACHE_HEADER = 'no-cache, no-store, must-revalidate';
+const SHORT_CACHE_SECONDS = 300; // 5 minutes for static assets
 
 try {
   ensureDirSync(MEDIA_USERS_DIR);
@@ -57,6 +58,8 @@ const mediaStaticOptions = {
   setHeaders: (res) => {
     res.set('Access-Control-Allow-Origin', '*');
     res.set('Cross-Origin-Resource-Policy', 'cross-origin');
+    // Allow caching but with revalidation for media files
+    res.set('Cache-Control', 'public, max-age=3600, must-revalidate');
   }
 };
 
@@ -76,7 +79,14 @@ const publicStaticOptions = {
       return;
     }
 
-    res.set('Cache-Control', `public, max-age=${ONE_YEAR_SECONDS}, immutable`);
+    // For JS and CSS files, use short cache with revalidation
+    if (servedPath.endsWith('.js') || servedPath.endsWith('.css')) {
+      res.set('Cache-Control', `public, max-age=${SHORT_CACHE_SECONDS}, must-revalidate`);
+      return;
+    }
+
+    // For other static assets, use moderate caching
+    res.set('Cache-Control', `public, max-age=${SHORT_CACHE_SECONDS}, must-revalidate`);
   }
 };
 
@@ -590,7 +600,7 @@ app.get('/api/media/:bucketId/assets/:fileName/download', auth.authenticateToken
     const mimeType = getMimeType(fileName);
     res.setHeader('Content-Type', mimeType);
     res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(fileName)}"`);
-    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    res.setHeader('Cache-Control', 'public, max-age=300, must-revalidate');
     
     return res.sendFile(path.resolve(filePath));
   } catch (err) {
