@@ -524,14 +524,13 @@
         // Set loading state
         if (submitBtn) {
             submitBtn.disabled = true;
+            submitBtn.classList.add('uploading');
             submitBtn.innerHTML = '<span class="upload-spinner"></span> Uploading...';
-            submitBtn.style.opacity = '0.7';
-            submitBtn.style.cursor = 'not-allowed';
         }
         if (bucketSelect) bucketSelect.disabled = true;
         if (fileInput) fileInput.disabled = true;
         if (titleInput) titleInput.disabled = true;
-        setFeedback(uploadFeedback, 'Uploading...', 'info');
+        setFeedback(uploadFeedback, 'Uploading file...', 'info');
         
         try {
             const formData = new FormData();
@@ -554,9 +553,8 @@
             // Restore form state
             if (submitBtn) {
                 submitBtn.disabled = false;
+                submitBtn.classList.remove('uploading');
                 submitBtn.textContent = originalBtnText;
-                submitBtn.style.opacity = '1';
-                submitBtn.style.cursor = 'pointer';
             }
             if (bucketSelect) bucketSelect.disabled = false;
             if (fileInput) fileInput.disabled = false;
