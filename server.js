@@ -517,9 +517,17 @@ app.post('/api/media/upload', auth.authenticateToken, attachCurrentUser, require
 app.delete('/api/media/:bucketId/assets/:fileName', auth.authenticateToken, attachCurrentUser, requireApprovedUser, async (req, res) => {
   try {
     const bucketInfo = await resolveBucketInfo(req.params.bucketId, req.currentUser);
+    
+    // For private buckets, only owner can delete
     if (bucketInfo.type === 'private' && bucketInfo.ownerSlug !== slugifyMedia(req.currentUser.username)) {
       return res.status(403).json({ error: 'Not allowed' });
     }
+    
+    // For shared buckets, only owner can delete
+    if (bucketInfo.type === 'shared' && !isOwnerUsername(req.currentUser.username)) {
+      return res.status(403).json({ error: 'Only owner can delete shared media' });
+    }
+    
     const targetPath = path.join(bucketInfo.dir, path.basename(req.params.fileName));
     await fs.promises.unlink(targetPath);
     res.json({ message: 'Deleted' });
