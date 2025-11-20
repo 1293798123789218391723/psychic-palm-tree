@@ -54,6 +54,15 @@
     let externalMailInterval = null;
     let audioContext = null;
     let activeMediaElement = null;
+    
+    // Get owner username from config
+    const ownerUsername = (window.__LARP_CONFIG__?.ownerUsername || 'dot').toLowerCase();
+    
+    // Check if current user is owner
+    function isOwnerUser(user = currentUser) {
+        if (!user || !user.username) return false;
+        return user.username.toLowerCase() === ownerUsername;
+    }
 
     document.addEventListener('DOMContentLoaded', () => {
         initTabs();
@@ -507,6 +516,23 @@
             setFeedback(uploadFeedback, 'Pick a destination and file', 'error');
             return;
         }
+        
+        // Get submit button and disable form during upload
+        const submitBtn = mediaUploadForm?.querySelector('button[type="submit"]');
+        const originalBtnText = submitBtn?.textContent || 'Upload';
+        
+        // Set loading state
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="upload-spinner"></span> Uploading...';
+            submitBtn.style.opacity = '0.7';
+            submitBtn.style.cursor = 'not-allowed';
+        }
+        if (bucketSelect) bucketSelect.disabled = true;
+        if (fileInput) fileInput.disabled = true;
+        if (titleInput) titleInput.disabled = true;
+        setFeedback(uploadFeedback, 'Uploading...', 'info');
+        
         try {
             const formData = new FormData();
             formData.append('file', file);
@@ -524,6 +550,17 @@
         } catch (err) {
             console.error('Upload failed', err);
             setFeedback(uploadFeedback, 'Upload failed', 'error');
+        } finally {
+            // Restore form state
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.textContent = originalBtnText;
+                submitBtn.style.opacity = '1';
+                submitBtn.style.cursor = 'pointer';
+            }
+            if (bucketSelect) bucketSelect.disabled = false;
+            if (fileInput) fileInput.disabled = false;
+            if (titleInput) titleInput.disabled = false;
         }
     }
 
@@ -601,7 +638,9 @@
     function renderAssets(entries = []) {
         const shared = entries.find((entry) => entry.bucket.type === 'shared');
         const personal = entries.find((entry) => entry.bucket.type === 'private');
-        renderAssetGrid(sharedGrid, shared?.assets || [], false);
+        // Allow delete for shared media only if user is owner
+        const allowDeleteShared = isOwnerUser();
+        renderAssetGrid(sharedGrid, shared?.assets || [], allowDeleteShared);
         renderAssetGrid(privateGrid, personal?.assets || [], true);
     }
 
