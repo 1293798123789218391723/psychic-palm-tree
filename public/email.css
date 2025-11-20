@@ -62,15 +62,15 @@ body.has-modal-open {
 
 .auth-card {
     width: 100%;
-    background: linear-gradient(135deg, rgba(10, 12, 32, 0.95), rgba(6, 8, 24, 0.95));
-    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: linear-gradient(135deg, rgba(10, 12, 32, 0.98), rgba(6, 8, 24, 0.98));
+    border: 1px solid rgba(255, 255, 255, 0.15);
     border-radius: 28px;
-    padding: 3rem;
-    backdrop-filter: blur(20px);
+    padding: 3.5rem;
+    backdrop-filter: blur(24px);
     box-shadow: 
-        0 30px 80px rgba(3, 4, 15, 0.7),
-        0 0 0 1px rgba(255, 255, 255, 0.05) inset,
-        0 0 60px rgba(91, 162, 255, 0.1);
+        0 30px 80px rgba(3, 4, 15, 0.8),
+        0 0 0 1px rgba(255, 255, 255, 0.08) inset,
+        0 0 80px rgba(91, 162, 255, 0.15);
     position: relative;
     overflow: hidden;
 }
@@ -127,8 +127,13 @@ h1, h2 {
 }
 
 .auth-card h1 {
-    font-size: 2rem;
-    margin-bottom: 0.3rem;
+    font-size: 2.2rem;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+    background: linear-gradient(135deg, #fff, rgba(255, 255, 255, 0.85));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
 }
 
 .auth-helper {
@@ -292,10 +297,12 @@ h1, h2 {
 }
 
 .auth-form label {
-    font-size: 0.75rem;
-    letter-spacing: 0.08em;
+    font-size: 0.85rem;
+    letter-spacing: 0.1em;
     text-transform: uppercase;
-    color: var(--text-muted);
+    color: rgba(255, 255, 255, 0.7);
+    font-weight: 600;
+    margin-bottom: 0.5rem;
 }
 
 .auth-form input {
@@ -400,7 +407,7 @@ button {
     color: #fff;
     border: none;
     border-radius: 16px;
-    padding: 1.1rem;
+    padding: 1.1rem 2rem;
     cursor: pointer;
     font-weight: 600;
     letter-spacing: 0.05em;
@@ -411,6 +418,11 @@ button {
     box-shadow: 
         0 4px 15px rgba(91, 162, 255, 0.3),
         0 0 0 1px rgba(255, 255, 255, 0.1) inset;
+    min-width: 140px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
 }
 
 .primary-btn::before {
@@ -428,7 +440,7 @@ button {
     left: 100%;
 }
 
-.primary-btn:hover {
+.primary-btn:hover:not(:disabled):not(.uploading) {
     transform: translateY(-2px);
     box-shadow: 
         0 8px 25px rgba(91, 162, 255, 0.4),
@@ -436,8 +448,13 @@ button {
         0 0 30px rgba(91, 162, 255, 0.2);
 }
 
-.primary-btn:active {
+.primary-btn:active:not(:disabled):not(.uploading) {
     transform: translateY(0);
+}
+
+.primary-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
 }
 
 .primary-btn.slim {
@@ -957,24 +974,53 @@ body.is-owner .owner-only {
 
 .form-feedback[data-state="info"] {
     color: #7ab9ff;
+    font-weight: 500;
 }
 
 /* Upload spinner animation */
 .upload-spinner {
     display: inline-block;
-    width: 12px;
-    height: 12px;
-    border: 2px solid rgba(255, 255, 255, 0.3);
+    width: 14px;
+    height: 14px;
+    border: 2.5px solid rgba(255, 255, 255, 0.25);
     border-top-color: #fff;
     border-radius: 50%;
-    animation: spin 0.8s linear infinite;
-    margin-right: 6px;
+    animation: spin 0.7s linear infinite;
+    margin-right: 8px;
     vertical-align: middle;
 }
 
 @keyframes spin {
     to {
         transform: rotate(360deg);
+    }
+}
+
+/* Upload button loading state */
+.primary-btn.uploading {
+    opacity: 0.85;
+    cursor: not-allowed;
+    pointer-events: none;
+    position: relative;
+}
+
+.primary-btn.uploading::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+    animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+    0% {
+        transform: translateX(-100%);
+    }
+    100% {
+        transform: translateX(100%);
     }
 }
 
