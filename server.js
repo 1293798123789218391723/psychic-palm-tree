@@ -14,6 +14,7 @@ const approvals = require('./approvals');
 const notifications = require('./notifications');
 const ticTacToe = require('./tictactoe');
 const gmailPoller = require('./gmailPoller');
+const gmailDiscordRelay = require('./gmail_to_discord_test');
 
 const CHAT_MAX_MESSAGES = 100;
 const chatMessages = [];
@@ -62,6 +63,12 @@ const mediaStaticOptions = {
     res.set('Cache-Control', 'public, max-age=3600, must-revalidate');
   }
 };
+
+function setFriendlyMediaHeaders(res) {
+  res.set('Access-Control-Allow-Origin', '*');
+  res.set('Cross-Origin-Resource-Policy', 'cross-origin');
+  res.set('Cache-Control', 'public, max-age=3600, must-revalidate');
+}
 
 app.use('/media/users', express.static(MEDIA_USERS_DIR, mediaStaticOptions));
 app.use('/media', express.static(MEDIA_ROOT, mediaStaticOptions));
@@ -136,10 +143,7 @@ const mediaStorage = multer.diskStorage({
   filename: (req, file, cb) => {
     const unique = generateMediaKey();
     const ext = path.extname(file.originalname) || '';
-    const requestedTitle = (req.query.title || '').trim() || (req.body && req.body.title) || '';
-    const baseName = requestedTitle || path.basename(file.originalname, ext);
-    const safeBase = slugifyMedia(baseName) || 'media';
-    cb(null, `${safeBase}-${unique}${ext.toLowerCase()}`);
+    cb(null, `${unique}${ext.toLowerCase()}`);
   }
 });
 
@@ -172,6 +176,36 @@ app.get('/config.js', (req, res) => {
 
 app.use(express.static(path.join(__dirname, 'public'), publicStaticOptions));
 
+// Friendly media URLs
+app.get('/:userSlug/:fileName([A-Za-z0-9_-]+\.[A-Za-z0-9]{2,10})', async (req, res, next) => {
+  try {
+    const userSlug = slugifyMedia(req.params.userSlug);
+    const fileName = path.basename(req.params.fileName);
+    if (!userSlug || !fileName) return next();
+
+    const filePath = path.join(MEDIA_USERS_DIR, userSlug, fileName);
+    await fs.promises.access(filePath, fs.constants.R_OK);
+    setFriendlyMediaHeaders(res);
+    return res.sendFile(path.resolve(filePath));
+  } catch {
+    return next();
+  }
+});
+
+app.get('/:fileName([A-Za-z0-9_-]+\.[A-Za-z0-9]{2,10})', async (req, res, next) => {
+  try {
+    const fileName = path.basename(req.params.fileName);
+    if (!fileName) return next();
+
+    const filePath = path.join(MEDIA_SHARED_DIR, fileName);
+    await fs.promises.access(filePath, fs.constants.R_OK);
+    setFriendlyMediaHeaders(res);
+    return res.sendFile(path.resolve(filePath));
+  } catch {
+    return next();
+  }
+});
+
 // Initialize database
 database.init().then(async () => {
   console.log('Database initialized');
@@ -183,6 +217,9 @@ database.init().then(async () => {
 
   // Start Gmail poller (optional if credentials exist)
   gmailPoller.start();
+
+  // Relay new Gmail messages to Discord (optional if webhook and credentials exist)
+  gmailDiscordRelay.start();
   
   // Cleanup expired addresses every hour
   cron.schedule('0 * * * *', async () => {
@@ -511,7 +548,7 @@ app.post('/api/media/upload', auth.authenticateToken, attachCurrentUser, require
         name: fileName,
         size: stats.size,
         createdAt: stats.birthtime,
-        url: absoluteResourceUrl(req, `${bucket.urlPrefix}/${encodeURIComponent(fileName)}`),
+        url: buildPublicMediaUrl(req, bucket, fileName),
         embedUrl: absoluteResourceUrl(req, bucket.type === 'shared'
           ? `/media/embed/shared/${encodeURIComponent(fileName)}`
           : `/media/embed/users/${encodeURIComponent(bucket.ownerSlug || '')}/${encodeURIComponent(fileName)}`),
@@ -569,7 +606,7 @@ app.get('/api/media/:bucketId/assets/:fileName/info', auth.authenticateToken, at
       extension: ext,
       createdAt: stats.birthtime,
       updatedAt: stats.mtime,
-      url: absoluteResourceUrl(req, `${bucketInfo.urlPrefix}/${encodeURIComponent(fileName)}`),
+      url: buildPublicMediaUrl(req, bucketInfo, fileName),
       embedUrl: absoluteResourceUrl(req, bucketInfo.type === 'shared'
         ? `/media/embed/shared/${encodeURIComponent(fileName)}`
         : `/media/embed/users/${encodeURIComponent(bucketInfo.ownerSlug || '')}/${encodeURIComponent(fileName)}`),
@@ -945,7 +982,8 @@ async function getMediaBucketsForUser(user) {
     name: 'Shared Media',
     type: 'shared',
     dir: MEDIA_SHARED_DIR,
-    urlPrefix: '/media/shared'
+    urlPrefix: '/',
+    ownerSlug: null
   };
 
   const { dir: userDir, slug: userSlug } = await ensureUserMediaDirForUsername(user.username);
@@ -955,7 +993,8 @@ async function getMediaBucketsForUser(user) {
     name: `${user.username}'s Media`,
     type: 'private',
     dir: userDir,
-    urlPrefix: `/media/users/${encodeURIComponent(userSlug)}`
+    urlPrefix: `/${encodeURIComponent(userSlug)}`,
+    ownerSlug: userSlug
   };
 
   return [shared, personal];
@@ -969,7 +1008,8 @@ async function resolveBucketInfo(bucketId, user) {
       name: 'Shared Media',
       type: 'shared',
       dir: MEDIA_SHARED_DIR,
-      urlPrefix: '/media/shared'
+      urlPrefix: '/',
+      ownerSlug: null
     };
   }
 
@@ -981,7 +1021,7 @@ async function resolveBucketInfo(bucketId, user) {
       name: `${user.username}'s Media`,
       type: 'private',
       dir,
-      urlPrefix: `/media/users/${encodeURIComponent(userSlug)}`,
+      urlPrefix: `/${encodeURIComponent(userSlug)}`,
       ownerSlug: userSlug
     };
   }
@@ -1005,7 +1045,7 @@ async function listBucketAssets(req, bucketInfo) {
       size: stats.size,
       createdAt: stats.birthtime,
       updatedAt: stats.mtime,
-      url: absoluteResourceUrl(req, `${bucketInfo.urlPrefix}/${encodeURIComponent(file.name)}`),
+      url: buildPublicMediaUrl(req, bucketInfo, file.name),
       embedUrl: absoluteResourceUrl(req, bucketInfo.type === 'shared'
         ? `/media/embed/shared/${encodeURIComponent(file.name)}`
         : `/media/embed/users/${encodeURIComponent(bucketInfo.ownerSlug || '')}/${encodeURIComponent(file.name)}`),
@@ -1015,6 +1055,28 @@ async function listBucketAssets(req, bucketInfo) {
   }
 
   return assets.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+}
+
+function getFriendlyBucketPrefix(bucketInfo = {}) {
+  if (bucketInfo.type === 'shared') {
+    return '/';
+  }
+
+  const slug = bucketInfo.ownerSlug || '';
+  if (!slug) return '';
+
+  return `/${encodeURIComponent(slug)}`;
+}
+
+function getFriendlyMediaPath(bucketInfo, fileName) {
+  const prefix = getFriendlyBucketPrefix(bucketInfo) || '/media';
+  const normalizedPrefix = prefix.endsWith('/') ? prefix : `${prefix}/`;
+  const safeFileName = encodeURIComponent(path.basename(fileName));
+  return `${normalizedPrefix}${safeFileName}`;
+}
+
+function buildPublicMediaUrl(req, bucketInfo, fileName) {
+  return absoluteResourceUrl(req, getFriendlyMediaPath(bucketInfo, fileName));
 }
 
 async function resolveMediaBucket(req, res, next) {
@@ -1033,27 +1095,16 @@ async function resolveMediaBucket(req, res, next) {
 }
 
 function generateMediaKey() {
-  // Choose pattern: either "67" or "41"
-  const pattern = Math.random() < 0.5 ? '67' : '41';
-  
-  // Choose length: 4, 5, or 6 digits
-  const length = 4 + Math.floor(Math.random() * 3); // 4, 5, or 6
-  
-  // Generate random digits for remaining positions
-  const remaining = length - 2;
-  let randomDigits = '';
-  for (let i = 0; i < remaining; i++) {
-    randomDigits += Math.floor(Math.random() * 10).toString();
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+  const length = 5 + Math.floor(Math.random() * 2); // 5 or 6 characters
+  let key = '';
+
+  for (let i = 0; i < length; i++) {
+    const index = Math.floor(Math.random() * alphabet.length);
+    key += alphabet[index];
   }
-  
-  // Insert pattern at random position
-  const positions = [];
-  for (let i = 0; i <= randomDigits.length; i++) {
-    positions.push(i);
-  }
-  const insertPos = positions[Math.floor(Math.random() * positions.length)];
-  
-  return randomDigits.slice(0, insertPos) + pattern + randomDigits.slice(insertPos);
+
+  return key;
 }
 
 function slugifyMedia(value) {
@@ -1115,7 +1166,7 @@ function sanitizeBucketInfo(bucket) {
     name: bucket.name,
     type: bucket.type,
     ownerSlug: bucket.ownerSlug,
-    urlPrefix: bucket.urlPrefix
+    urlPrefix: getFriendlyBucketPrefix(bucket) || bucket.urlPrefix
   };
 }
 
