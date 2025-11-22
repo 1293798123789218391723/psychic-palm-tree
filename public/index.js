@@ -30,29 +30,6 @@ function updateGreetingWithTransition(element, newText) {
     }, 300);
 }
 
-function configureLoginButton() {
-    const loginButton = document.querySelector('.login-button');
-    if (!loginButton) return;
-
-    const fallbackUrl = loginButton.getAttribute('data-fallback-url') || loginButton.getAttribute('href') || '/';
-    const remoteUrl = loginButton.getAttribute('data-remote-url');
-
-    // Default to fallback to prevent a dead link while detection runs
-    loginButton.setAttribute('href', fallbackUrl);
-
-    if (!remoteUrl) {
-        return;
-    }
-
-    fetch(remoteUrl, { mode: 'no-cors', cache: 'no-store' })
-        .then(() => {
-            loginButton.setAttribute('href', remoteUrl);
-        })
-        .catch(() => {
-            loginButton.setAttribute('href', fallbackUrl);
-        });
-}
-
 // Initialize particles.js and greeting on page load
 document.addEventListener('DOMContentLoaded', function() {
     // Update greeting
@@ -174,8 +151,6 @@ document.addEventListener('DOMContentLoaded', function() {
             "retina_detect": true
         });
     }
-
-    configureLoginButton();
 });
 
 // Update greeting every minute (in case user keeps page open)
