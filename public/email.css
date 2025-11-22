@@ -168,8 +168,8 @@
 
     .top-bar--dashboard .brand {
         font-size: 1.2rem;
-        letter-spacing: 0.35em;
-        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        text-transform: none;
         color: #fff;
         text-decoration: none;
     }
@@ -184,8 +184,8 @@
 
     .top-link {
         color: rgba(255, 255, 255, 0.7);
-        text-transform: uppercase;
-        letter-spacing: 0.15em;
+        text-transform: none;
+        letter-spacing: 0.08em;
         font-size: 0.75rem;
         text-decoration: none;
     }

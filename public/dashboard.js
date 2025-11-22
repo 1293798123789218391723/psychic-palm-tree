@@ -616,7 +616,7 @@
             <div class="media-bucket-item">
                 <h3>${bucket.name}</h3>
                 <p class="bucket-meta">${bucket.type === 'shared' ? 'Shared by everyone' : 'Only you can manage this bucket.'}</p>
-                <p class="bucket-meta">URL prefix: <code>${bucket.urlPrefix}</code></p>
+                <p class="bucket-meta">URL prefix: <code>${new URL(bucket.urlPrefix || '/', window.location.origin).toString()}</code></p>
             </div>`
             )
             .join('');
