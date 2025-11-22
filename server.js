@@ -98,38 +98,62 @@ const publicStaticOptions = {
 
 // Media embed (Discord-friendly)
 app.get('/media/embed/shared/:file', async (req, res) => {
-  try {
-    const fileName = path.basename(req.params.file);
-    const filePath = path.join(MEDIA_SHARED_DIR, fileName);
-    await fs.promises.access(filePath, fs.constants.R_OK);
-    const fileUrl = `/media/shared/${encodeURIComponent(fileName)}`;
-    applyNoCache(res);
-    // Set proper content-type for Discord
-    res.type('text/html');
-    res.set('X-Content-Type-Options', 'nosniff');
-    return res.send(renderEmbedPage(fileUrl, fileName, req.query));
-  } catch {
-    return res.status(404).send('Not found');
-  }
+  return respondWithEmbed(res, `shared/${req.params.file}`, req.query);
 });
 
 app.get('/media/embed/users/:userSlug/:file', async (req, res) => {
+  const userSlug = slugifyMedia(req.params.userSlug);
+  return respondWithEmbed(res, `users/${userSlug}/${req.params.file}`, req.query);
+});
+
+// Catch-all embed so every file path can produce an embed page
+app.get('/media/embed/*', async (req, res) => {
+  return respondWithEmbed(res, req.params[0], req.query);
+});
+
+async function respondWithEmbed(res, relativePath, query) {
   try {
-    const userSlug = slugifyMedia(req.params.userSlug);
-    const fileName = path.basename(req.params.file);
-    const dir = path.join(MEDIA_USERS_DIR, userSlug);
-    const filePath = path.join(dir, fileName);
-    await fs.promises.access(filePath, fs.constants.R_OK);
-    const fileUrl = `/media/users/${encodeURIComponent(userSlug)}/${encodeURIComponent(fileName)}`;
+    const sanitizedPath = path.normalize(relativePath || '').replace(/^([.]{2}[\/])+/, '').replace(/^\//, '');
+    if (!sanitizedPath) {
+      return res.status(404).send('Not found');
+    }
+
+    const segments = sanitizedPath.split('/').filter(Boolean);
+    if (!segments.length) {
+      return res.status(404).send('Not found');
+    }
+
+    const [first, ...rest] = segments;
+    let baseDir = MEDIA_ROOT;
+    let relativeFilePath = sanitizedPath;
+
+    if (first === 'users') {
+      baseDir = MEDIA_USERS_DIR;
+      relativeFilePath = rest.join('/');
+    } else if (first === 'shared') {
+      baseDir = MEDIA_SHARED_DIR;
+      relativeFilePath = rest.join('/');
+    }
+
+    if (!relativeFilePath) {
+      return res.status(404).send('Not found');
+    }
+
+    const diskPath = path.join(baseDir, relativeFilePath);
+    await fs.promises.access(diskPath, fs.constants.R_OK);
+
+    const encodedPath = segments.map(encodeURIComponent).join('/');
+    const fileUrl = `/media/${encodedPath}`;
+    const fileName = path.basename(diskPath);
+
     applyNoCache(res);
-    // Set proper content-type for Discord
     res.type('text/html');
     res.set('X-Content-Type-Options', 'nosniff');
-    return res.send(renderEmbedPage(fileUrl, fileName, req.query));
+    return res.send(renderEmbedPage(fileUrl, fileName, query));
   } catch {
     return res.status(404).send('Not found');
   }
-});
+}
 
 const mediaStorage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -545,9 +569,7 @@ app.post('/api/media/upload', auth.authenticateToken, attachCurrentUser, require
         size: stats.size,
         createdAt: stats.birthtime,
         url: buildPublicMediaUrl(req, bucket, fileName),
-        embedUrl: absoluteResourceUrl(req, bucket.type === 'shared'
-          ? `/media/embed/shared/${encodeURIComponent(fileName)}`
-          : `/media/embed/users/${encodeURIComponent(bucket.ownerSlug || '')}/${encodeURIComponent(fileName)}`),
+      embedUrl: buildEmbedUrl(req, bucket, fileName),
         bucketId: bucket.id
       }
     });
@@ -603,9 +625,7 @@ app.get('/api/media/:bucketId/assets/:fileName/info', auth.authenticateToken, at
       createdAt: stats.birthtime,
       updatedAt: stats.mtime,
       url: buildPublicMediaUrl(req, bucketInfo, fileName),
-      embedUrl: absoluteResourceUrl(req, bucketInfo.type === 'shared'
-        ? `/media/embed/shared/${encodeURIComponent(fileName)}`
-        : `/media/embed/users/${encodeURIComponent(bucketInfo.ownerSlug || '')}/${encodeURIComponent(fileName)}`),
+      embedUrl: buildEmbedUrl(req, bucketInfo, fileName),
       bucketId: bucketInfo.id,
       bucketType: bucketInfo.type
     });
@@ -1042,9 +1062,7 @@ async function listBucketAssets(req, bucketInfo) {
       createdAt: stats.birthtime,
       updatedAt: stats.mtime,
       url: buildPublicMediaUrl(req, bucketInfo, file.name),
-      embedUrl: absoluteResourceUrl(req, bucketInfo.type === 'shared'
-        ? `/media/embed/shared/${encodeURIComponent(file.name)}`
-        : `/media/embed/users/${encodeURIComponent(bucketInfo.ownerSlug || '')}/${encodeURIComponent(file.name)}`),
+      embedUrl: buildEmbedUrl(req, bucketInfo, file.name),
       bucketId: bucketInfo.id,
       bucketType: bucketInfo.type
     });
@@ -1073,6 +1091,21 @@ function getFriendlyMediaPath(bucketInfo, fileName) {
 
 function buildPublicMediaUrl(req, bucketInfo, fileName) {
   return absoluteResourceUrl(req, getFriendlyMediaPath(bucketInfo, fileName));
+}
+
+function buildEmbedPath(bucketInfo, fileName) {
+  const safeFileName = encodeURIComponent(path.basename(fileName));
+
+  if (bucketInfo.type === 'shared') {
+    return `/media/embed/shared/${safeFileName}`;
+  }
+
+  const ownerSlug = encodeURIComponent(bucketInfo.ownerSlug || '');
+  return `/media/embed/users/${ownerSlug}/${safeFileName}`;
+}
+
+function buildEmbedUrl(req, bucketInfo, fileName) {
+  return absoluteResourceUrl(req, buildEmbedPath(bucketInfo, fileName));
 }
 
 async function resolveMediaBucket(req, res, next) {
