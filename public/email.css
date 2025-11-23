@@ -376,23 +376,6 @@
         pointer-events: none;
     }
 
-    .password-toggle .eye-icon svg {
-        width: 100%;
-        height: 100%;
-    }
-
-    .password-toggle .eye-closed {
-        display: none;
-    }
-
-    .password-toggle.is-revealing .eye-open {
-        display: none;
-    }
-
-    .password-toggle.is-revealing .eye-closed {
-        display: block;
-    }
-
     .stack-form input,
     .stack-form select,
     .stack-form textarea {

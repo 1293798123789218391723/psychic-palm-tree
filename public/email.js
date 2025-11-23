@@ -161,12 +161,15 @@ function initPasswordToggles() {
             e.stopPropagation();
             const wrapper = toggle.closest('.password-input-wrapper');
             const input = wrapper?.querySelector('input[type="password"], input[type="text"]');
+            const eyeIcon = toggle.querySelector('.eye-icon');
             if (!input) return;
 
             const showing = input.type === 'password';
             input.type = showing ? 'text' : 'password';
             toggle.setAttribute('aria-label', showing ? 'Hide password' : 'Show password');
-            toggle.classList.toggle('is-revealing', showing);
+            if (eyeIcon) {
+                eyeIcon.textContent = showing ? '👁' : '🙈';
+            }
         });
     });
 }

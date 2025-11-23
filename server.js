@@ -135,6 +135,7 @@ app.get('/:rotationKey([A-Za-z0-9]{5})', async (req, res, next) => {
         : `/${encodeURIComponent(resolved.ownerSlug)}/${encodeURIComponent(resolved.fileName)}`;
 
       return respondWithEmbed(res, embedPath, req.query, friendlyPath);
+      return respondWithEmbed(res, embedPath, req.query, `/${req.params.rotationKey}`);
     }
 
     setFriendlyMediaHeaders(res);
@@ -1580,10 +1581,10 @@ function renderEmbedPage(fileUrl, fileName, query = {}) {
   ` : '';
 
   const mediaElement = isImage
-    ? `<img id="embedMedia" class="embed-media" src="${absoluteUrl}" alt="${title}" />`
+    ? `<img class="embed-media" src="${absoluteUrl}" alt="${title}" />`
     : isVideo
       ? `<div class="embed-video-frame">
-          <video id="embedMedia" class="embed-media" src="${absoluteUrl}" controls autoplay loop playsinline poster="" preload="metadata"></video>
+          <video class="embed-media" src="${absoluteUrl}" controls autoplay loop playsinline poster="" preload="metadata"></video>
          </div>`
       : `<a class="embed-link" href="${absoluteUrl}">${absoluteUrl}</a>`;
 
@@ -1639,17 +1640,9 @@ function renderEmbedPage(fileUrl, fileName, query = {}) {
         pointer-events: none;
       }
       .embed-description { margin-top: 12px; color: rgba(255,255,255,0.82); font-size: 14px; line-height: 1.5; }
-      .embed-loader { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; background: rgba(5,5,23,0.82); color: #e5e9ff; font-weight: 600; letter-spacing: 0.01em; }
-      .embed-loader.hidden { opacity: 0; visibility: hidden; transition: opacity 0.25s ease, visibility 0.25s ease; }
-      .spinner { width: 44px; height: 44px; border-radius: 50%; border: 3px solid rgba(255,255,255,0.2); border-top-color: #7cc0ff; animation: spin 1s linear infinite; }
-      @keyframes spin { to { transform: rotate(360deg); } }
     </style>
   </head>
   <body>
-    <div id="loader" class="embed-loader">
-      <div class="spinner" aria-hidden="true"></div>
-      <p>Loading media…</p>
-    </div>
     <article class="embed-shell">
       <header class="embed-header">
         <div>
