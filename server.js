@@ -1496,11 +1496,15 @@ function renderEmbedPage(fileUrl, fileName, query = {}) {
   const isImage = /\.(png|jpe?g|gif|webp|avif|svg)$/i.test(ext);
   const isVideo = /\.(mp4|webm|ogg|mov|m4v)$/i.test(ext);
   const mimeType = getMimeType(fileName);
+  const siteName = DOMAIN.replace(/^https?:\/\//, '');
 
   const commonMeta = `
     <meta charset="UTF-8">
     <title>${title}</title>
     <meta name="theme-color" content="${color}">
+    <link rel="canonical" href="${absoluteUrl}">
+    <meta property="og:url" content="${absoluteUrl}">
+    <meta property="og:site_name" content="${siteName}">
     <meta property="og:title" content="${title}">
     <meta property="og:description" content="${description}">
   `;
@@ -1526,12 +1530,14 @@ function renderEmbedPage(fileUrl, fileName, query = {}) {
     <meta property="og:video:type" content="${mimeType}">
     <meta property="og:video:width" content="1920">
     <meta property="og:video:height" content="1080">
+    <meta property="og:image" content="${absoluteUrl}">
     <meta name="twitter:card" content="player">
     <meta name="twitter:title" content="${title}">
     <meta name="twitter:description" content="${description}">
     <meta name="twitter:player" content="${absoluteUrl}">
     <meta name="twitter:player:width" content="1920">
     <meta name="twitter:player:height" content="1080">
+    <meta name="twitter:player:stream" content="${absoluteUrl}">
   ` : '';
 
   const fallbackMeta = !isImage && !isVideo ? `
@@ -1544,10 +1550,12 @@ function renderEmbedPage(fileUrl, fileName, query = {}) {
   ` : '';
 
   const mediaElement = isImage
-    ? `<img src="${absoluteUrl}" alt="${title}" style="max-width:90vw;max-height:90vh;border-radius:12px;object-fit:contain;"/>`
+    ? `<img class="embed-media" src="${absoluteUrl}" alt="${title}" />`
     : isVideo
-      ? `<video src="${absoluteUrl}" controls autoplay loop playsinline style="max-width:90vw;max-height:90vh;border-radius:12px;"></video>`
-      : `<a href="${absoluteUrl}">${absoluteUrl}</a>`;
+      ? `<div class="embed-video-frame">
+          <video class="embed-media" src="${absoluteUrl}" controls autoplay loop playsinline poster="" preload="metadata"></video>
+         </div>`
+      : `<a class="embed-link" href="${absoluteUrl}">${absoluteUrl}</a>`;
 
   return `<!DOCTYPE html>
   <html lang="en">
@@ -1556,10 +1564,66 @@ function renderEmbedPage(fileUrl, fileName, query = {}) {
     ${imageMeta}
     ${videoMeta}
     ${fallbackMeta}
-    <style>body{margin:0;background:#050517;display:flex;align-items:center;justify-content:center;height:100vh;color:#fff;font-family:Arial,sans-serif;}a{color:#7ab9ff;word-break:break-all;}</style>
+    <style>
+      :root { color-scheme: dark; }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: radial-gradient(circle at top left, #0e1028, #050517 55%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        color: #f8fbff;
+        font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+        padding: 24px;
+      }
+      a { color: #8ecbff; word-break: break-all; }
+      .embed-shell {
+        width: min(720px, 100%);
+        background: linear-gradient(145deg, rgba(18,21,43,0.9), rgba(10,12,27,0.92));
+        border: 1px solid rgba(255,255,255,0.07);
+        border-radius: 18px;
+        box-shadow: 0 20px 50px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.03) inset;
+        overflow: hidden;
+      }
+      .embed-header {
+        padding: 14px 18px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: rgba(255,255,255,0.02);
+        border-bottom: 1px solid rgba(255,255,255,0.06);
+      }
+      .embed-title { font-weight: 700; letter-spacing: 0.01em; font-size: 16px; margin: 0; color: #fff; }
+      .embed-url { font-size: 12px; color: rgba(255,255,255,0.7); margin-top: 2px; text-decoration: none; }
+      .embed-body { padding: 16px; }
+      .embed-media { width: 100%; max-height: 70vh; border-radius: 12px; display: block; background:#0b0d22; }
+      .embed-video-frame { position: relative; }
+      .embed-video-frame::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        border-radius: 12px;
+        box-shadow: 0 12px 32px rgba(0,0,0,0.55);
+        pointer-events: none;
+      }
+      .embed-description { margin-top: 12px; color: rgba(255,255,255,0.82); font-size: 14px; line-height: 1.5; }
+    </style>
   </head>
   <body>
-    ${mediaElement}
+    <article class="embed-shell">
+      <header class="embed-header">
+        <div>
+          <p class="embed-title">${title}</p>
+          <a class="embed-url" href="${absoluteUrl}" target="_blank" rel="noopener">${absoluteUrl}</a>
+        </div>
+      </header>
+      <div class="embed-body">
+        ${mediaElement}
+        <p class="embed-description">${description}</p>
+      </div>
+    </article>
     <script>
       (() => {
         const stopEvent = (event) => {
