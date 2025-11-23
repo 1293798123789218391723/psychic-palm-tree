@@ -42,7 +42,29 @@ const ONE_YEAR_SECONDS = 31536000;
 const NO_CACHE_HEADER = 'no-cache, no-store, must-revalidate';
 const SHORT_CACHE_SECONDS = 300; // 5 minutes for static assets
 const MEDIA_ROTATION_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
-const MEDIA_ROTATION_SECRET = process.env.MEDIA_ROTATION_SECRET || 'rotate-media-secret';
+ codex/rotate-media-urls-every-10-minutes-snqsxp
+const rotationTokenMap = new Map();
+const rotationPayloadMap = new Map();
+
+function getCurrentRotationInterval() {
+  return Math.floor(Date.now() / MEDIA_ROTATION_INTERVAL_MS);
+}
+
+function cleanupRotationCache() {
+  const current = getCurrentRotationInterval();
+
+  for (const [token, payload] of rotationTokenMap) {
+    if (payload.interval !== current) {
+      rotationTokenMap.delete(token);
+    }
+  }
+
+  for (const [key, entry] of rotationPayloadMap) {
+    if (entry.interval !== current) {
+      rotationPayloadMap.delete(key);
+    }
+  }
+}
 
 try {
   ensureDirSync(MEDIA_USERS_DIR);
@@ -72,18 +94,18 @@ function setFriendlyMediaHeaders(res) {
   res.set('Cache-Control', 'public, max-age=3600, must-revalidate');
 }
 
-app.get('/media/r/:token', async (req, res) => {
+app.get('/:rotationKey([A-Za-z0-9]{5})', async (req, res, next) => {
   try {
-    const resolved = await resolveRotatingToken(req.params.token);
+    const resolved = await resolveRotatingToken(req.params.rotationKey);
     if (!resolved) {
-      return res.status(404).send('Not found');
+      return next();
     }
 
     setFriendlyMediaHeaders(res);
     return res.sendFile(resolved.diskPath);
   } catch (err) {
     console.error('Rotating media error:', err);
-    return res.status(404).send('Not found');
+    return next();
   }
 });
 
@@ -115,6 +137,24 @@ const publicStaticOptions = {
 };
 
 // Media embed (Discord-friendly)
+app.get('/:rotationKey([A-Za-z0-9]{5})/embed', async (req, res, next) => {
+  try {
+    const payload = await resolveRotatingToken(req.params.rotationKey);
+    if (!payload) {
+      return next();
+    }
+
+    const embedPath = payload.bucketType === 'shared'
+      ? `shared/${payload.fileName}`
+      : `users/${payload.ownerSlug}/${payload.fileName}`;
+
+    return respondWithEmbed(res, embedPath, req.query, `/${req.params.rotationKey}`);
+  } catch (err) {
+    console.error('Rotating embed error:', err);
+    return next();
+  }
+});
+
 app.get('/media/embed/shared/:file', async (req, res) => {
   return respondWithEmbed(res, `shared/${req.params.file}`, req.query);
 });
@@ -1122,73 +1162,67 @@ function buildEmbedUrl(req, bucketInfo, fileName) {
 function buildRotatingMediaPath(bucketInfo, fileName) {
   const token = createRotationToken(bucketInfo, fileName);
   if (!token) return null;
-  return `/media/r/${token}`;
+  return `/${token}`;
 }
 
 function buildRotatingEmbedPath(bucketInfo, fileName) {
   const token = createRotationToken(bucketInfo, fileName);
   if (!token) return null;
-  return `/media/embed/r/${token}`;
+  return `/${token}/embed`;
 }
 
 function createRotationToken(bucketInfo = {}, fileName = '') {
+  cleanupRotationCache();
+
   const normalizedFile = path.basename(fileName || '').trim();
   if (!normalizedFile) return null;
 
   const bucketType = bucketInfo.type === 'private' ? 'private' : 'shared';
   const ownerSlug = bucketType === 'private' ? slugifyMedia(bucketInfo.ownerSlug || '') : '';
+  const interval = getCurrentRotationInterval();
 
   if (bucketType === 'private' && !ownerSlug) {
     return null;
   }
 
-  const payload = {
-    b: bucketType,
-    o: ownerSlug,
-    f: normalizedFile,
-    i: Math.floor(Date.now() / MEDIA_ROTATION_INTERVAL_MS)
-  };
+  const payloadKey = `${bucketType}:${ownerSlug}:${normalizedFile}:${interval}`;
+  const existing = rotationPayloadMap.get(payloadKey);
+  if (existing) {
+    return existing.token;
+  }
 
-  const encoded = Buffer.from(JSON.stringify(payload)).toString('base64url');
-  const signature = signRotationPayload(encoded);
-  return `${encoded}.${signature}`;
+  let token = '';
+  do {
+    token = generateMediaKey(5);
+  } while (rotationTokenMap.has(token));
+
+  const payload = { bucketType, ownerSlug, fileName: normalizedFile, interval };
+  rotationTokenMap.set(token, payload);
+  rotationPayloadMap.set(payloadKey, { token, payload, interval });
+  return token;
 }
 
 async function resolveRotatingToken(token) {
+  cleanupRotationCache();
+
   if (!token || typeof token !== 'string') {
     return null;
   }
 
-  const [encoded, signature] = token.split('.');
-  if (!encoded || !signature) return null;
-
-  const expected = signRotationPayload(encoded);
-  if (!timingSafeEquals(signature, expected)) {
+  const payload = rotationTokenMap.get(token);
+  if (!payload || payload.interval !== getCurrentRotationInterval()) {
     return null;
   }
 
-  let payload;
-  try {
-    payload = JSON.parse(Buffer.from(encoded, 'base64url').toString('utf8'));
-  } catch (err) {
-    console.error('Failed to parse rotation token:', err.message);
-    return null;
-  }
-
-  const currentInterval = Math.floor(Date.now() / MEDIA_ROTATION_INTERVAL_MS);
-  if (payload.i !== currentInterval) {
-    return null;
-  }
-
-  const fileName = path.basename(payload.f || '');
+  const fileName = path.basename(payload.fileName || '');
   if (!fileName) return null;
 
   let baseDir = MEDIA_SHARED_DIR;
   let ownerSlug = '';
   let bucketType = 'shared';
 
-  if (payload.b === 'private') {
-    ownerSlug = slugifyMedia(payload.o || '');
+  if (payload.bucketType === 'private') {
+    ownerSlug = slugifyMedia(payload.ownerSlug || '');
     if (!ownerSlug) return null;
     baseDir = path.join(MEDIA_USERS_DIR, ownerSlug);
     bucketType = 'private';
@@ -1202,23 +1236,6 @@ async function resolveRotatingToken(token) {
   }
 
   return { diskPath, fileName, ownerSlug, bucketType };
-}
-
-function signRotationPayload(encodedPayload) {
-  return crypto
-    .createHmac('sha256', MEDIA_ROTATION_SECRET)
-    .update(encodedPayload)
-    .digest('base64url')
-    .slice(0, 24);
-}
-
-function timingSafeEquals(a, b) {
-  const bufA = Buffer.from(String(a));
-  const bufB = Buffer.from(String(b));
-  if (bufA.length !== bufB.length) {
-    return false;
-  }
-  return crypto.timingSafeEqual(bufA, bufB);
 }
 
 async function resolveMediaBucket(req, res, next) {
@@ -1236,31 +1253,21 @@ async function resolveMediaBucket(req, res, next) {
   }
 }
 
-function generateMediaKey() {
+function generateMediaKey(length = 5) {
   const uppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
   const lowercase = 'abcdefghijklmnopqrstuvwxyz';
-  const length = 5 + Math.floor(Math.random() * 2); // 5 or 6 characters
+  const targetLength = Math.max(1, Math.min(5, Math.floor(length) || 5));
   const letters = [];
 
   let hasUpper = false;
   let hasLower = false;
 
-  for (let i = 0; i < length; i++) {
+  for (let i = 0; i < targetLength; i++) {
     const useUpper = Math.random() < 0.6; // Bias toward uppercase for a punchier look
     const source = useUpper ? uppercase : lowercase;
     const char = source[Math.floor(Math.random() * source.length)];
 
-    hasUpper ||= useUpper;
-    hasLower ||= !useUpper;
-    letters.push(char);
-  }
-
-  if (!hasUpper) {
-    const index = Math.floor(Math.random() * letters.length);
-    letters[index] = uppercase[Math.floor(Math.random() * uppercase.length)];
-  }
-
-  if (!hasLower) {
+  if (!hasLower && letters.length > 1) {
     const index = Math.floor(Math.random() * letters.length);
     letters[index] = lowercase[Math.floor(Math.random() * lowercase.length)];
   }
