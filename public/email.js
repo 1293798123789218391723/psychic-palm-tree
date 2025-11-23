@@ -161,16 +161,14 @@ function initPasswordToggles() {
             e.stopPropagation();
             const wrapper = toggle.closest('.password-input-wrapper');
             const input = wrapper?.querySelector('input[type="password"], input[type="text"]');
+            const eyeIcon = toggle.querySelector('.eye-icon');
             if (!input) return;
-            
-            if (input.type === 'password') {
-                input.type = 'text';
-                toggle.setAttribute('aria-label', 'Hide password');
-                toggle.querySelector('.eye-icon').textContent = '👁️‍🗨️';
-            } else {
-                input.type = 'password';
-                toggle.setAttribute('aria-label', 'Show password');
-                toggle.querySelector('.eye-icon').textContent = '👁️';
+
+            const showing = input.type === 'password';
+            input.type = showing ? 'text' : 'password';
+            toggle.setAttribute('aria-label', showing ? 'Hide password' : 'Show password');
+            if (eyeIcon) {
+                eyeIcon.textContent = showing ? '👁' : '🙈';
             }
         });
     });

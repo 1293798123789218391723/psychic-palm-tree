@@ -681,7 +681,7 @@
         container.innerHTML = assets
             .map((asset) => {
                 // Get clean URL without query parameters
-                let cleanUrl = asset.url || '';
+                let cleanUrl = asset.url || asset.shortUrl || asset.embedUrl || '';
                 if (cleanUrl && !cleanUrl.startsWith('http://') && !cleanUrl.startsWith('https://')) {
                     cleanUrl = new URL(cleanUrl, window.location.origin).toString();
                 }

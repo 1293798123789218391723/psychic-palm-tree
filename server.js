@@ -130,6 +130,11 @@ app.get('/:rotationKey([A-Za-z0-9]{5})', async (req, res, next) => {
         ? `shared/${resolved.fileName}`
         : `users/${resolved.ownerSlug}/${resolved.fileName}`;
 
+      const friendlyPath = resolved.bucketType === 'shared'
+        ? `/${encodeURIComponent(resolved.fileName)}`
+        : `/${encodeURIComponent(resolved.ownerSlug)}/${encodeURIComponent(resolved.fileName)}`;
+
+      return respondWithEmbed(res, embedPath, req.query, friendlyPath);
       return respondWithEmbed(res, embedPath, req.query, `/${req.params.rotationKey}`);
     }
 
@@ -180,7 +185,11 @@ app.get('/:rotationKey([A-Za-z0-9]{5})/embed', async (req, res, next) => {
       ? `shared/${payload.fileName}`
       : `users/${payload.ownerSlug}/${payload.fileName}`;
 
-    return respondWithEmbed(res, embedPath, req.query, `/${req.params.rotationKey}`);
+    const friendlyPath = payload.bucketType === 'shared'
+      ? `/${encodeURIComponent(payload.fileName)}`
+      : `/${encodeURIComponent(payload.ownerSlug)}/${encodeURIComponent(payload.fileName)}`;
+
+    return respondWithEmbed(res, embedPath, req.query, friendlyPath);
   } catch (err) {
     console.error('Rotating embed error:', err);
     return next();
@@ -255,8 +264,8 @@ async function respondWithEmbed(res, relativePath, query, fileUrlOverride) {
     const tokenBucket = first === 'users'
       ? { type: 'private', ownerSlug: rest[0] }
       : { type: 'shared', ownerSlug: null };
-    const rotatingPath = buildRotatingMediaPath(tokenBucket, fileName);
-    const fileUrl = fileUrlOverride || rotatingPath || `/media/${encodedPath}`;
+    const friendlyPath = buildFriendlyMediaPath(tokenBucket, fileName);
+    const fileUrl = fileUrlOverride || friendlyPath || `/media/${encodedPath}`;
 
     applyNoCache(res);
     res.type('text/html');
@@ -692,6 +701,7 @@ app.post('/api/media/upload', auth.authenticateToken, attachCurrentUser, require
     const stats = await fs.promises.stat(req.file.path);
     const bucket = req.mediaBucketInfo;
     const fileName = path.basename(req.file.path);
+    const shortPath = buildRotatingMediaPath(bucket, fileName);
 
     res.json({
       message: 'File uploaded',
@@ -701,7 +711,8 @@ app.post('/api/media/upload', auth.authenticateToken, attachCurrentUser, require
         size: stats.size,
         createdAt: stats.birthtime,
         url: buildPublicMediaUrl(req, bucket, fileName),
-      embedUrl: buildEmbedUrl(req, bucket, fileName),
+        embedUrl: buildEmbedUrl(req, bucket, fileName),
+        shortUrl: shortPath ? absoluteResourceUrl(req, shortPath) : null,
         bucketId: bucket.id
       }
     });
@@ -1188,6 +1199,8 @@ async function listBucketAssets(req, bucketInfo) {
   for (const file of files) {
     const filePath = path.join(bucketInfo.dir, file.name);
     const stats = await fs.promises.stat(filePath);
+    const shortPath = buildRotatingMediaPath(bucketInfo, file.name);
+    const shortUrl = shortPath ? absoluteResourceUrl(req, shortPath) : null;
     assets.push({
       name: file.name,
       size: stats.size,
@@ -1195,6 +1208,7 @@ async function listBucketAssets(req, bucketInfo) {
       updatedAt: stats.mtime,
       url: buildPublicMediaUrl(req, bucketInfo, file.name),
       embedUrl: buildEmbedUrl(req, bucketInfo, file.name),
+      shortUrl,
       bucketId: bucketInfo.id,
       bucketType: bucketInfo.type
     });
@@ -1204,11 +1218,15 @@ async function listBucketAssets(req, bucketInfo) {
 }
 
 function buildPublicMediaUrl(req, bucketInfo, fileName) {
-  return absoluteResourceUrl(req, buildRotatingMediaPath(bucketInfo, fileName));
+  const friendlyPath = buildFriendlyMediaPath(bucketInfo, fileName);
+  if (!friendlyPath) return null;
+  return absoluteResourceUrl(req, friendlyPath);
 }
 
 function buildEmbedUrl(req, bucketInfo, fileName) {
-  return absoluteResourceUrl(req, buildRotatingEmbedPath(bucketInfo, fileName));
+  const friendlyPath = buildFriendlyMediaPath(bucketInfo, fileName);
+  if (!friendlyPath) return null;
+  return absoluteResourceUrl(req, friendlyPath);
 }
 
 function buildRotatingMediaPath(bucketInfo, fileName) {
@@ -1221,6 +1239,19 @@ function buildRotatingEmbedPath(bucketInfo, fileName) {
   const token = createRotationToken(bucketInfo, fileName);
   if (!token) return null;
   return `/${token}/embed`;
+}
+
+function buildFriendlyMediaPath(bucketInfo = {}, fileName = '') {
+  const safeFile = encodeURIComponent(path.basename(fileName || ''));
+  if (!safeFile) return null;
+
+  if (bucketInfo.type === 'private') {
+    const ownerSlug = slugifyMedia(bucketInfo.ownerSlug || '');
+    if (!ownerSlug) return null;
+    return `/${ownerSlug}/${safeFile}`;
+  }
+
+  return `/${safeFile}`;
 }
 
 function createRotationToken(bucketInfo = {}, fileName = '') {
