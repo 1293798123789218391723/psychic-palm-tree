@@ -44,6 +44,16 @@ const SHORT_CACHE_SECONDS = 300; // 5 minutes for static assets
 const MEDIA_ROTATION_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
 const rotationTokenMap = new Map();
 const rotationPayloadMap = new Map();
+const EMBED_BOT_KEYWORDS = [
+  'discordbot',
+  'twitterbot',
+  'slackbot',
+  'facebookexternalhit',
+  'whatsapp',
+  'telegrambot',
+  'linkedinbot',
+  'embedly'
+];
 
 function getCurrentRotationInterval() {
   return Math.floor(Date.now() / MEDIA_ROTATION_INTERVAL_MS);
@@ -93,11 +103,34 @@ function setFriendlyMediaHeaders(res) {
   res.set('Cache-Control', 'public, max-age=3600, must-revalidate');
 }
 
+function shouldServeEmbedPreview(req) {
+  // Avoid interfering with range/video streaming requests
+  if (req.headers.range) {
+    return false;
+  }
+
+  const ua = (req.get('user-agent') || '').toLowerCase();
+  const accept = (req.get('accept') || '').toLowerCase();
+  const isEmbedBot = EMBED_BOT_KEYWORDS.some((keyword) => ua.includes(keyword));
+  const preferHtml = accept.includes('text/html');
+  const explicitEmbed = ['1', 'true', 'yes'].includes((req.query.embed || '').toString().toLowerCase());
+
+  return Boolean(explicitEmbed || (isEmbedBot && (preferHtml || !accept)));
+}
+
 app.get('/:rotationKey([A-Za-z0-9]{5})', async (req, res, next) => {
   try {
     const resolved = await resolveRotatingToken(req.params.rotationKey);
     if (!resolved) {
       return next();
+    }
+
+    if (shouldServeEmbedPreview(req)) {
+      const embedPath = resolved.bucketType === 'shared'
+        ? `shared/${resolved.fileName}`
+        : `users/${resolved.ownerSlug}/${resolved.fileName}`;
+
+      return respondWithEmbed(res, embedPath, req.query, `/${req.params.rotationKey}`);
     }
 
     setFriendlyMediaHeaders(res);
@@ -287,6 +320,16 @@ app.get('/:userSlug/:fileName([A-Za-z0-9_-]+\.[A-Za-z0-9]{2,10})', async (req, r
 
     const filePath = path.join(MEDIA_USERS_DIR, userSlug, fileName);
     await fs.promises.access(filePath, fs.constants.R_OK);
+
+    if (shouldServeEmbedPreview(req)) {
+      return respondWithEmbed(
+        res,
+        `users/${userSlug}/${fileName}`,
+        req.query,
+        `/${encodeURIComponent(userSlug)}/${encodeURIComponent(fileName)}`
+      );
+    }
+
     setFriendlyMediaHeaders(res);
     return res.sendFile(path.resolve(filePath));
   } catch {
@@ -301,6 +344,16 @@ app.get('/:fileName([A-Za-z0-9_-]+\.[A-Za-z0-9]{2,10})', async (req, res, next) 
 
     const filePath = path.join(MEDIA_SHARED_DIR, fileName);
     await fs.promises.access(filePath, fs.constants.R_OK);
+
+    if (shouldServeEmbedPreview(req)) {
+      return respondWithEmbed(
+        res,
+        `shared/${fileName}`,
+        req.query,
+        `/${encodeURIComponent(fileName)}`
+      );
+    }
+
     setFriendlyMediaHeaders(res);
     return res.sendFile(path.resolve(filePath));
   } catch {
@@ -1471,14 +1524,14 @@ function renderEmbedPage(fileUrl, fileName, query = {}) {
     <meta property="og:video:url" content="${absoluteUrl}">
     <meta property="og:video:secure_url" content="${absoluteUrl}">
     <meta property="og:video:type" content="${mimeType}">
-    <meta property="og:video:width" content="720">
-    <meta property="og:video:height" content="1280">
+    <meta property="og:video:width" content="1920">
+    <meta property="og:video:height" content="1080">
     <meta name="twitter:card" content="player">
     <meta name="twitter:title" content="${title}">
     <meta name="twitter:description" content="${description}">
     <meta name="twitter:player" content="${absoluteUrl}">
-    <meta name="twitter:player:width" content="720">
-    <meta name="twitter:player:height" content="1280">
+    <meta name="twitter:player:width" content="1920">
+    <meta name="twitter:player:height" content="1080">
   ` : '';
 
   const fallbackMeta = !isImage && !isVideo ? `
