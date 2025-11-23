@@ -26,6 +26,7 @@
                 </div>
 
                 <h1 id="authTitle">Sign In</h1>
+                <p class="auth-subtitle">Access your uploads and tools securely.</p>
                 <p class="auth-helper">
                     <span class="helper-text helper-text--login">
                         Need an account?
@@ -39,13 +40,13 @@
 
                 <form id="loginForm" class="auth-form active" autocomplete="off">
                     <label for="loginUsername">Username</label>
-                    <input type="text" id="loginUsername" placeholder="yourname" required>
+                    <input type="text" id="loginUsername" placeholder="username" autocomplete="username" required>
 
                     <label for="loginPassword">Password</label>
                     <div class="password-input-wrapper">
-                        <input type="password" id="loginPassword" placeholder="********" required>
+                        <input type="password" id="loginPassword" placeholder="••••••••" autocomplete="current-password" required>
                         <button type="button" class="password-toggle" aria-label="Show password">
-                            <span class="eye-icon">👁️</span>
+                            <span class="eye-icon">👁</span>
                         </button>
                     </div>
 
@@ -61,7 +62,7 @@
                     <div class="password-input-wrapper">
                         <input type="password" id="registerPassword" placeholder="minimum 6 characters" minlength="6" required>
                         <button type="button" class="password-toggle" aria-label="Show password">
-                            <span class="eye-icon">👁️</span>
+                            <span class="eye-icon">👁</span>
                         </button>
                     </div>
 

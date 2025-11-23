@@ -681,7 +681,7 @@
         container.innerHTML = assets
             .map((asset) => {
                 // Get clean URL without query parameters
-                let cleanUrl = asset.url || '';
+                let cleanUrl = asset.url || asset.shortUrl || asset.embedUrl || '';
                 if (cleanUrl && !cleanUrl.startsWith('http://') && !cleanUrl.startsWith('https://')) {
                     cleanUrl = new URL(cleanUrl, window.location.origin).toString();
                 }
@@ -693,10 +693,10 @@
                     // If URL parsing fails, use as-is
                 }
 
-                const videoThumb = isVideo(cleanUrl)
+                const videoThumb = isVideo(cleanUrl, asset.name)
                     ? `<video class="thumb-video" src="${cleanUrl}" muted playsinline loop preload="metadata"></video><span class="play-icon">&#9658;</span>`
                     : '';
-                const imageStyle = !isVideo(cleanUrl) ? thumbStyle(cleanUrl) : thumbStyle('');
+                const imageStyle = !isVideo(cleanUrl, asset.name) ? thumbStyle(cleanUrl, asset.name) : thumbStyle('', asset.name);
                 const fileName = escapeHtml(asset.name || 'Untitled');
                 const fileSize = formatBytes(asset.size);
                 const fileDate = formatDate(asset.createdAt);
@@ -877,13 +877,15 @@
 
         const lower = (url || '').toLowerCase();
         let el;
-        if (isVideo(lower)) {
+        const mediaKind = getMediaKind(lower, name);
+
+        if (mediaKind === 'video') {
             el = document.createElement('video');
             el.src = url;
             el.controls = true;
             el.autoplay = true;
             el.playsInline = true;
-        } else if (isImage(lower)) {
+        } else if (mediaKind === 'image') {
             el = document.createElement('img');
             el.src = url;
             el.alt = name || 'media';
@@ -927,21 +929,30 @@
     }
 
     // ----- Helpers -----
-    function isVideo(url = '') {
-        const clean = cleanUrl(url);
-        return /\.(mp4|webm|ogg|mov|m4v)$/i.test(clean);
+    function isVideo(url = '', name = '') {
+        return matchesExt(url, name, /\.(mp4|webm|ogg|mov|m4v)$/i);
     }
 
-    function isImage(url = '') {
-        const clean = cleanUrl(url);
-        return /\.(png|jpe?g|gif|webp|avif|svg)$/i.test(clean);
+    function isImage(url = '', name = '') {
+        return matchesExt(url, name, /\.(png|jpe?g|gif|webp|avif|svg)$/i);
     }
 
-    function thumbStyle(url = '') {
-        if (isVideo(url)) {
+    function getMediaKind(url = '', name = '') {
+        if (isVideo(url, name)) return 'video';
+        if (isImage(url, name)) return 'image';
+        return 'other';
+    }
+
+    function matchesExt(url = '', name = '', regex) {
+        const candidates = [url, name].map(cleanUrl).filter(Boolean);
+        return candidates.some((candidate) => regex.test(candidate));
+    }
+
+    function thumbStyle(url = '', name = '') {
+        if (isVideo(url, name)) {
             return 'background: rgba(255,255,255,0.04);';
         }
-        if (isImage(url)) {
+        if (isImage(url, name)) {
             return `background-image:url('${url}'); background-size:cover; background-position:center; background-repeat:no-repeat;`;
         }
         return 'background: linear-gradient(135deg, rgba(90,110,255,0.15), rgba(0,0,0,0.25));';
