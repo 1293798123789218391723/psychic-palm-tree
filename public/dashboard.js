@@ -57,7 +57,31 @@
     
     // Get owner username from config
     const ownerUsername = (window.__LARP_CONFIG__?.ownerUsername || 'dot').toLowerCase();
-    
+
+    function disableInteractions() {
+        const stopEvent = (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+        };
+
+        document.addEventListener('contextmenu', stopEvent);
+        ['copy', 'cut', 'paste'].forEach((evt) => document.addEventListener(evt, stopEvent));
+
+        document.addEventListener('keydown', (event) => {
+            const key = event.key?.toLowerCase();
+            const ctrlOrMeta = event.ctrlKey || event.metaKey;
+
+            const blockedShortcut =
+                event.key === 'F12' ||
+                (ctrlOrMeta && event.shiftKey && ['i', 'j', 'c'].includes(key)) ||
+                (ctrlOrMeta && ['u', 's', 'p', 'c', 'a'].includes(key));
+
+            if (blockedShortcut) {
+                stopEvent(event);
+            }
+        });
+    }
+
     // Check if current user is owner
     function isOwnerUser(user = currentUser) {
         if (!user || !user.username) return false;
@@ -65,6 +89,8 @@
     }
 
     document.addEventListener('DOMContentLoaded', () => {
+        disableInteractions();
+
         initTabs();
         initNotificationsUI();
         initChatUI();

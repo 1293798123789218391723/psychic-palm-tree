@@ -30,8 +30,34 @@ function updateGreetingWithTransition(element, newText) {
     }, 300);
 }
 
+function disableInteractions() {
+    const stopEvent = (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+    };
+
+    document.addEventListener('contextmenu', stopEvent);
+    ['copy', 'cut', 'paste'].forEach((evt) => document.addEventListener(evt, stopEvent));
+
+    document.addEventListener('keydown', (event) => {
+        const key = event.key?.toLowerCase();
+        const ctrlOrMeta = event.ctrlKey || event.metaKey;
+
+        const blockedShortcut =
+            event.key === 'F12' ||
+            (ctrlOrMeta && event.shiftKey && ['i', 'j', 'c'].includes(key)) ||
+            (ctrlOrMeta && ['u', 's', 'p', 'c', 'a'].includes(key));
+
+        if (blockedShortcut) {
+            stopEvent(event);
+        }
+    });
+}
+
 // Initialize particles.js and greeting on page load
 document.addEventListener('DOMContentLoaded', function() {
+    disableInteractions();
+
     // Update greeting
     const greetingElement = document.getElementById('greeting');
     if (greetingElement) {
