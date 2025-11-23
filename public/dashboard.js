@@ -2,6 +2,7 @@
     const API_BASE = window.location.origin.includes('media.larpgod.xyz')
         ? 'https://media.larpgod.xyz/api'
         : '/api';
+    const MEDIA_ROTATION_MS = 10 * 60 * 1000; // 10 minutes
 
     // UI refs
     const notificationsBtn = byId('notificationsBtn');
@@ -52,6 +53,7 @@
     let notificationsInterval = null;
     let chatInterval = null;
     let externalMailInterval = null;
+    let mediaRefreshInterval = null;
     let audioContext = null;
     let activeMediaElement = null;
     
@@ -205,6 +207,7 @@
             notificationsInterval = setInterval(fetchNotifications, 15000);
             externalMailInterval = setInterval(loadExternalMail, 20000);
             tttInterval = setInterval(loadTicTacToeStatus, 5000);
+            mediaRefreshInterval = setInterval(loadMedia, MEDIA_ROTATION_MS);
         }
     }
 
@@ -213,6 +216,7 @@
         clearInterval(chatInterval);
         clearInterval(externalMailInterval);
         clearInterval(tttInterval);
+        clearInterval(mediaRefreshInterval);
     }
 
     // ----- Notifications -----

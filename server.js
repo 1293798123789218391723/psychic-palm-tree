@@ -3,6 +3,7 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 const cron = require('node-cron');
 const multer = require('multer');
 const { v4: uuidv4 } = require('uuid');
@@ -40,6 +41,29 @@ const EMBED_PREFS_FILE = path.join(__dirname, 'db', 'embed-prefs.json');
 const ONE_YEAR_SECONDS = 31536000;
 const NO_CACHE_HEADER = 'no-cache, no-store, must-revalidate';
 const SHORT_CACHE_SECONDS = 300; // 5 minutes for static assets
+const MEDIA_ROTATION_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
+const rotationTokenMap = new Map();
+const rotationPayloadMap = new Map();
+
+function getCurrentRotationInterval() {
+  return Math.floor(Date.now() / MEDIA_ROTATION_INTERVAL_MS);
+}
+
+function cleanupRotationCache() {
+  const current = getCurrentRotationInterval();
+
+  for (const [token, payload] of rotationTokenMap) {
+    if (payload.interval !== current) {
+      rotationTokenMap.delete(token);
+    }
+  }
+
+  for (const [key, entry] of rotationPayloadMap) {
+    if (entry.interval !== current) {
+      rotationPayloadMap.delete(key);
+    }
+  }
+}
 
 try {
   ensureDirSync(MEDIA_USERS_DIR);
@@ -69,6 +93,21 @@ function setFriendlyMediaHeaders(res) {
   res.set('Cache-Control', 'public, max-age=3600, must-revalidate');
 }
 
+app.get('/:rotationKey([A-Za-z0-9]{5})', async (req, res, next) => {
+  try {
+    const resolved = await resolveRotatingToken(req.params.rotationKey);
+    if (!resolved) {
+      return next();
+    }
+
+    setFriendlyMediaHeaders(res);
+    return res.sendFile(resolved.diskPath);
+  } catch (err) {
+    console.error('Rotating media error:', err);
+    return next();
+  }
+});
+
 app.use('/media/users', express.static(MEDIA_USERS_DIR, mediaStaticOptions));
 app.use('/media', express.static(MEDIA_ROOT, mediaStaticOptions));
 
@@ -97,6 +136,24 @@ const publicStaticOptions = {
 };
 
 // Media embed (Discord-friendly)
+app.get('/:rotationKey([A-Za-z0-9]{5})/embed', async (req, res, next) => {
+  try {
+    const payload = await resolveRotatingToken(req.params.rotationKey);
+    if (!payload) {
+      return next();
+    }
+
+    const embedPath = payload.bucketType === 'shared'
+      ? `shared/${payload.fileName}`
+      : `users/${payload.ownerSlug}/${payload.fileName}`;
+
+    return respondWithEmbed(res, embedPath, req.query, `/${req.params.rotationKey}`);
+  } catch (err) {
+    console.error('Rotating embed error:', err);
+    return next();
+  }
+});
+
 app.get('/media/embed/shared/:file', async (req, res) => {
   return respondWithEmbed(res, `shared/${req.params.file}`, req.query);
 });
@@ -111,7 +168,7 @@ app.get('/media/embed/*', async (req, res) => {
   return respondWithEmbed(res, req.params[0], req.query);
 });
 
-async function respondWithEmbed(res, relativePath, query) {
+async function respondWithEmbed(res, relativePath, query, fileUrlOverride) {
   try {
     const sanitizedPath = path.normalize(relativePath || '').replace(/^([.]{2}[\/])+/, '').replace(/^\//, '');
     if (!sanitizedPath) {
@@ -143,8 +200,12 @@ async function respondWithEmbed(res, relativePath, query) {
     await fs.promises.access(diskPath, fs.constants.R_OK);
 
     const encodedPath = segments.map(encodeURIComponent).join('/');
-    const fileUrl = `/media/${encodedPath}`;
     const fileName = path.basename(diskPath);
+    const tokenBucket = first === 'users'
+      ? { type: 'private', ownerSlug: rest[0] }
+      : { type: 'shared', ownerSlug: null };
+    const rotatingPath = buildRotatingMediaPath(tokenBucket, fileName);
+    const fileUrl = fileUrlOverride || rotatingPath || `/media/${encodedPath}`;
 
     applyNoCache(res);
     res.type('text/html');
@@ -1071,41 +1132,91 @@ async function listBucketAssets(req, bucketInfo) {
   return assets.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 }
 
-function getFriendlyBucketPrefix(bucketInfo = {}) {
-  if (bucketInfo.type === 'shared') {
-    return '/';
-  }
-
-  const slug = bucketInfo.ownerSlug || '';
-  if (!slug) return '';
-
-  return `/${encodeURIComponent(slug)}`;
-}
-
-function getFriendlyMediaPath(bucketInfo, fileName) {
-  const prefix = getFriendlyBucketPrefix(bucketInfo) || '/media';
-  const normalizedPrefix = prefix.endsWith('/') ? prefix : `${prefix}/`;
-  const safeFileName = encodeURIComponent(path.basename(fileName));
-  return `${normalizedPrefix}${safeFileName}`;
-}
-
 function buildPublicMediaUrl(req, bucketInfo, fileName) {
-  return absoluteResourceUrl(req, getFriendlyMediaPath(bucketInfo, fileName));
-}
-
-function buildEmbedPath(bucketInfo, fileName) {
-  const safeFileName = encodeURIComponent(path.basename(fileName));
-
-  if (bucketInfo.type === 'shared') {
-    return `/media/embed/shared/${safeFileName}`;
-  }
-
-  const ownerSlug = encodeURIComponent(bucketInfo.ownerSlug || '');
-  return `/media/embed/users/${ownerSlug}/${safeFileName}`;
+  return absoluteResourceUrl(req, buildRotatingMediaPath(bucketInfo, fileName));
 }
 
 function buildEmbedUrl(req, bucketInfo, fileName) {
-  return absoluteResourceUrl(req, buildEmbedPath(bucketInfo, fileName));
+  return absoluteResourceUrl(req, buildRotatingEmbedPath(bucketInfo, fileName));
+}
+
+function buildRotatingMediaPath(bucketInfo, fileName) {
+  const token = createRotationToken(bucketInfo, fileName);
+  if (!token) return null;
+  return `/${token}`;
+}
+
+function buildRotatingEmbedPath(bucketInfo, fileName) {
+  const token = createRotationToken(bucketInfo, fileName);
+  if (!token) return null;
+  return `/${token}/embed`;
+}
+
+function createRotationToken(bucketInfo = {}, fileName = '') {
+  cleanupRotationCache();
+
+  const normalizedFile = path.basename(fileName || '').trim();
+  if (!normalizedFile) return null;
+
+  const bucketType = bucketInfo.type === 'private' ? 'private' : 'shared';
+  const ownerSlug = bucketType === 'private' ? slugifyMedia(bucketInfo.ownerSlug || '') : '';
+  const interval = getCurrentRotationInterval();
+
+  if (bucketType === 'private' && !ownerSlug) {
+    return null;
+  }
+
+  const payloadKey = `${bucketType}:${ownerSlug}:${normalizedFile}:${interval}`;
+  const existing = rotationPayloadMap.get(payloadKey);
+  if (existing) {
+    return existing.token;
+  }
+
+  let token = '';
+  do {
+    token = generateMediaKey(5);
+  } while (rotationTokenMap.has(token));
+
+  const payload = { bucketType, ownerSlug, fileName: normalizedFile, interval };
+  rotationTokenMap.set(token, payload);
+  rotationPayloadMap.set(payloadKey, { token, payload, interval });
+  return token;
+}
+
+async function resolveRotatingToken(token) {
+  cleanupRotationCache();
+
+  if (!token || typeof token !== 'string') {
+    return null;
+  }
+
+  const payload = rotationTokenMap.get(token);
+  if (!payload || payload.interval !== getCurrentRotationInterval()) {
+    return null;
+  }
+
+  const fileName = path.basename(payload.fileName || '');
+  if (!fileName) return null;
+
+  let baseDir = MEDIA_SHARED_DIR;
+  let ownerSlug = '';
+  let bucketType = 'shared';
+
+  if (payload.bucketType === 'private') {
+    ownerSlug = slugifyMedia(payload.ownerSlug || '');
+    if (!ownerSlug) return null;
+    baseDir = path.join(MEDIA_USERS_DIR, ownerSlug);
+    bucketType = 'private';
+  }
+
+  const diskPath = path.join(baseDir, fileName);
+  try {
+    await fs.promises.access(diskPath, fs.constants.R_OK);
+  } catch {
+    return null;
+  }
+
+  return { diskPath, fileName, ownerSlug, bucketType };
 }
 
 async function resolveMediaBucket(req, res, next) {
@@ -1123,17 +1234,36 @@ async function resolveMediaBucket(req, res, next) {
   }
 }
 
-function generateMediaKey() {
-  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
-  const length = 5 + Math.floor(Math.random() * 2); // 5 or 6 characters
-  let key = '';
+function generateMediaKey(length = 5) {
+  const uppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  const lowercase = 'abcdefghijklmnopqrstuvwxyz';
+  const targetLength = Math.max(1, Math.min(5, Math.floor(length) || 5));
+  const letters = [];
 
-  for (let i = 0; i < length; i++) {
-    const index = Math.floor(Math.random() * alphabet.length);
-    key += alphabet[index];
+  let hasUpper = false;
+  let hasLower = false;
+
+  for (let i = 0; i < targetLength; i++) {
+    const useUpper = Math.random() < 0.6; // Bias toward uppercase for a punchier look
+    const source = useUpper ? uppercase : lowercase;
+    const char = source[Math.floor(Math.random() * source.length)];
+
+    hasUpper ||= useUpper;
+    hasLower ||= !useUpper;
+    letters.push(char);
   }
 
-  return key;
+  if (!hasUpper) {
+    const index = Math.floor(Math.random() * letters.length);
+    letters[index] = uppercase[Math.floor(Math.random() * uppercase.length)];
+  }
+
+  if (!hasLower && letters.length > 1) {
+    const index = Math.floor(Math.random() * letters.length);
+    letters[index] = lowercase[Math.floor(Math.random() * lowercase.length)];
+  }
+
+  return letters.join('');
 }
 
 function slugifyMedia(value) {
@@ -1187,6 +1317,17 @@ async function ensureMediaDirsForApprovedUsers() {
   } catch (err) {
     console.error('Failed to ensure media directories for approved users:', err);
   }
+}
+
+function getFriendlyBucketPrefix(bucketInfo = {}) {
+  if (bucketInfo.type === 'shared') {
+    return '/';
+  }
+
+  const slug = bucketInfo.ownerSlug || '';
+  if (!slug) return '';
+
+  return `/${encodeURIComponent(slug)}`;
 }
 
 function sanitizeBucketInfo(bucket) {
