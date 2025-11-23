@@ -44,6 +44,16 @@ const SHORT_CACHE_SECONDS = 300; // 5 minutes for static assets
 const MEDIA_ROTATION_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
 const rotationTokenMap = new Map();
 const rotationPayloadMap = new Map();
+const EMBED_BOT_KEYWORDS = [
+  'discordbot',
+  'twitterbot',
+  'slackbot',
+  'facebookexternalhit',
+  'whatsapp',
+  'telegrambot',
+  'linkedinbot',
+  'embedly'
+];
 
 function getCurrentRotationInterval() {
   return Math.floor(Date.now() / MEDIA_ROTATION_INTERVAL_MS);
@@ -93,11 +103,38 @@ function setFriendlyMediaHeaders(res) {
   res.set('Cache-Control', 'public, max-age=3600, must-revalidate');
 }
 
+function shouldServeEmbedPreview(req) {
+  // Avoid interfering with range/video streaming requests
+  if (req.headers.range) {
+    return false;
+  }
+
+  const ua = (req.get('user-agent') || '').toLowerCase();
+  const accept = (req.get('accept') || '').toLowerCase();
+  const isEmbedBot = EMBED_BOT_KEYWORDS.some((keyword) => ua.includes(keyword));
+  const preferHtml = accept.includes('text/html');
+  const explicitEmbed = ['1', 'true', 'yes'].includes((req.query.embed || '').toString().toLowerCase());
+
+  return Boolean(explicitEmbed || (isEmbedBot && (preferHtml || !accept)));
+}
+
 app.get('/:rotationKey([A-Za-z0-9]{5})', async (req, res, next) => {
   try {
     const resolved = await resolveRotatingToken(req.params.rotationKey);
     if (!resolved) {
       return next();
+    }
+
+    if (shouldServeEmbedPreview(req)) {
+      const embedPath = resolved.bucketType === 'shared'
+        ? `shared/${resolved.fileName}`
+        : `users/${resolved.ownerSlug}/${resolved.fileName}`;
+
+      const friendlyPath = resolved.bucketType === 'shared'
+        ? `/${encodeURIComponent(resolved.fileName)}`
+        : `/${encodeURIComponent(resolved.ownerSlug)}/${encodeURIComponent(resolved.fileName)}`;
+
+      return respondWithEmbed(res, embedPath, req.query, friendlyPath);
     }
 
     setFriendlyMediaHeaders(res);
@@ -147,7 +184,11 @@ app.get('/:rotationKey([A-Za-z0-9]{5})/embed', async (req, res, next) => {
       ? `shared/${payload.fileName}`
       : `users/${payload.ownerSlug}/${payload.fileName}`;
 
-    return respondWithEmbed(res, embedPath, req.query, `/${req.params.rotationKey}`);
+    const friendlyPath = payload.bucketType === 'shared'
+      ? `/${encodeURIComponent(payload.fileName)}`
+      : `/${encodeURIComponent(payload.ownerSlug)}/${encodeURIComponent(payload.fileName)}`;
+
+    return respondWithEmbed(res, embedPath, req.query, friendlyPath);
   } catch (err) {
     console.error('Rotating embed error:', err);
     return next();
@@ -222,8 +263,8 @@ async function respondWithEmbed(res, relativePath, query, fileUrlOverride) {
     const tokenBucket = first === 'users'
       ? { type: 'private', ownerSlug: rest[0] }
       : { type: 'shared', ownerSlug: null };
-    const rotatingPath = buildRotatingMediaPath(tokenBucket, fileName);
-    const fileUrl = fileUrlOverride || rotatingPath || `/media/${encodedPath}`;
+    const friendlyPath = buildFriendlyMediaPath(tokenBucket, fileName);
+    const fileUrl = fileUrlOverride || friendlyPath || `/media/${encodedPath}`;
 
     applyNoCache(res);
     res.type('text/html');
@@ -287,6 +328,16 @@ app.get('/:userSlug/:fileName([A-Za-z0-9_-]+\.[A-Za-z0-9]{2,10})', async (req, r
 
     const filePath = path.join(MEDIA_USERS_DIR, userSlug, fileName);
     await fs.promises.access(filePath, fs.constants.R_OK);
+
+    if (shouldServeEmbedPreview(req)) {
+      return respondWithEmbed(
+        res,
+        `users/${userSlug}/${fileName}`,
+        req.query,
+        `/${encodeURIComponent(userSlug)}/${encodeURIComponent(fileName)}`
+      );
+    }
+
     setFriendlyMediaHeaders(res);
     return res.sendFile(path.resolve(filePath));
   } catch {
@@ -301,6 +352,16 @@ app.get('/:fileName([A-Za-z0-9_-]+\.[A-Za-z0-9]{2,10})', async (req, res, next) 
 
     const filePath = path.join(MEDIA_SHARED_DIR, fileName);
     await fs.promises.access(filePath, fs.constants.R_OK);
+
+    if (shouldServeEmbedPreview(req)) {
+      return respondWithEmbed(
+        res,
+        `shared/${fileName}`,
+        req.query,
+        `/${encodeURIComponent(fileName)}`
+      );
+    }
+
     setFriendlyMediaHeaders(res);
     return res.sendFile(path.resolve(filePath));
   } catch {
@@ -639,6 +700,7 @@ app.post('/api/media/upload', auth.authenticateToken, attachCurrentUser, require
     const stats = await fs.promises.stat(req.file.path);
     const bucket = req.mediaBucketInfo;
     const fileName = path.basename(req.file.path);
+    const shortPath = buildRotatingMediaPath(bucket, fileName);
 
     res.json({
       message: 'File uploaded',
@@ -648,7 +710,8 @@ app.post('/api/media/upload', auth.authenticateToken, attachCurrentUser, require
         size: stats.size,
         createdAt: stats.birthtime,
         url: buildPublicMediaUrl(req, bucket, fileName),
-      embedUrl: buildEmbedUrl(req, bucket, fileName),
+        embedUrl: buildEmbedUrl(req, bucket, fileName),
+        shortUrl: shortPath ? absoluteResourceUrl(req, shortPath) : null,
         bucketId: bucket.id
       }
     });
@@ -1135,6 +1198,8 @@ async function listBucketAssets(req, bucketInfo) {
   for (const file of files) {
     const filePath = path.join(bucketInfo.dir, file.name);
     const stats = await fs.promises.stat(filePath);
+    const shortPath = buildRotatingMediaPath(bucketInfo, file.name);
+    const shortUrl = shortPath ? absoluteResourceUrl(req, shortPath) : null;
     assets.push({
       name: file.name,
       size: stats.size,
@@ -1142,6 +1207,7 @@ async function listBucketAssets(req, bucketInfo) {
       updatedAt: stats.mtime,
       url: buildPublicMediaUrl(req, bucketInfo, file.name),
       embedUrl: buildEmbedUrl(req, bucketInfo, file.name),
+      shortUrl,
       bucketId: bucketInfo.id,
       bucketType: bucketInfo.type
     });
@@ -1151,11 +1217,15 @@ async function listBucketAssets(req, bucketInfo) {
 }
 
 function buildPublicMediaUrl(req, bucketInfo, fileName) {
-  return absoluteResourceUrl(req, buildRotatingMediaPath(bucketInfo, fileName));
+  const friendlyPath = buildFriendlyMediaPath(bucketInfo, fileName);
+  if (!friendlyPath) return null;
+  return absoluteResourceUrl(req, friendlyPath);
 }
 
 function buildEmbedUrl(req, bucketInfo, fileName) {
-  return absoluteResourceUrl(req, buildRotatingEmbedPath(bucketInfo, fileName));
+  const friendlyPath = buildFriendlyMediaPath(bucketInfo, fileName);
+  if (!friendlyPath) return null;
+  return absoluteResourceUrl(req, friendlyPath);
 }
 
 function buildRotatingMediaPath(bucketInfo, fileName) {
@@ -1168,6 +1238,19 @@ function buildRotatingEmbedPath(bucketInfo, fileName) {
   const token = createRotationToken(bucketInfo, fileName);
   if (!token) return null;
   return `/${token}/embed`;
+}
+
+function buildFriendlyMediaPath(bucketInfo = {}, fileName = '') {
+  const safeFile = encodeURIComponent(path.basename(fileName || ''));
+  if (!safeFile) return null;
+
+  if (bucketInfo.type === 'private') {
+    const ownerSlug = slugifyMedia(bucketInfo.ownerSlug || '');
+    if (!ownerSlug) return null;
+    return `/${ownerSlug}/${safeFile}`;
+  }
+
+  return `/${safeFile}`;
 }
 
 function createRotationToken(bucketInfo = {}, fileName = '') {
@@ -1443,11 +1526,15 @@ function renderEmbedPage(fileUrl, fileName, query = {}) {
   const isImage = /\.(png|jpe?g|gif|webp|avif|svg)$/i.test(ext);
   const isVideo = /\.(mp4|webm|ogg|mov|m4v)$/i.test(ext);
   const mimeType = getMimeType(fileName);
+  const siteName = DOMAIN.replace(/^https?:\/\//, '');
 
   const commonMeta = `
     <meta charset="UTF-8">
     <title>${title}</title>
     <meta name="theme-color" content="${color}">
+    <link rel="canonical" href="${absoluteUrl}">
+    <meta property="og:url" content="${absoluteUrl}">
+    <meta property="og:site_name" content="${siteName}">
     <meta property="og:title" content="${title}">
     <meta property="og:description" content="${description}">
   `;
@@ -1471,14 +1558,16 @@ function renderEmbedPage(fileUrl, fileName, query = {}) {
     <meta property="og:video:url" content="${absoluteUrl}">
     <meta property="og:video:secure_url" content="${absoluteUrl}">
     <meta property="og:video:type" content="${mimeType}">
-    <meta property="og:video:width" content="720">
-    <meta property="og:video:height" content="1280">
+    <meta property="og:video:width" content="1920">
+    <meta property="og:video:height" content="1080">
+    <meta property="og:image" content="${absoluteUrl}">
     <meta name="twitter:card" content="player">
     <meta name="twitter:title" content="${title}">
     <meta name="twitter:description" content="${description}">
     <meta name="twitter:player" content="${absoluteUrl}">
-    <meta name="twitter:player:width" content="720">
-    <meta name="twitter:player:height" content="1280">
+    <meta name="twitter:player:width" content="1920">
+    <meta name="twitter:player:height" content="1080">
+    <meta name="twitter:player:stream" content="${absoluteUrl}">
   ` : '';
 
   const fallbackMeta = !isImage && !isVideo ? `
@@ -1491,10 +1580,12 @@ function renderEmbedPage(fileUrl, fileName, query = {}) {
   ` : '';
 
   const mediaElement = isImage
-    ? `<img src="${absoluteUrl}" alt="${title}" style="max-width:90vw;max-height:90vh;border-radius:12px;object-fit:contain;"/>`
+    ? `<img class="embed-media" src="${absoluteUrl}" alt="${title}" />`
     : isVideo
-      ? `<video src="${absoluteUrl}" controls autoplay loop playsinline style="max-width:90vw;max-height:90vh;border-radius:12px;"></video>`
-      : `<a href="${absoluteUrl}">${absoluteUrl}</a>`;
+      ? `<div class="embed-video-frame">
+          <video class="embed-media" src="${absoluteUrl}" controls autoplay loop playsinline poster="" preload="metadata"></video>
+         </div>`
+      : `<a class="embed-link" href="${absoluteUrl}">${absoluteUrl}</a>`;
 
   return `<!DOCTYPE html>
   <html lang="en">
@@ -1503,10 +1594,66 @@ function renderEmbedPage(fileUrl, fileName, query = {}) {
     ${imageMeta}
     ${videoMeta}
     ${fallbackMeta}
-    <style>body{margin:0;background:#050517;display:flex;align-items:center;justify-content:center;height:100vh;color:#fff;font-family:Arial,sans-serif;}a{color:#7ab9ff;word-break:break-all;}</style>
+    <style>
+      :root { color-scheme: dark; }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: radial-gradient(circle at top left, #0e1028, #050517 55%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        color: #f8fbff;
+        font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+        padding: 24px;
+      }
+      a { color: #8ecbff; word-break: break-all; }
+      .embed-shell {
+        width: min(720px, 100%);
+        background: linear-gradient(145deg, rgba(18,21,43,0.9), rgba(10,12,27,0.92));
+        border: 1px solid rgba(255,255,255,0.07);
+        border-radius: 18px;
+        box-shadow: 0 20px 50px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.03) inset;
+        overflow: hidden;
+      }
+      .embed-header {
+        padding: 14px 18px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: rgba(255,255,255,0.02);
+        border-bottom: 1px solid rgba(255,255,255,0.06);
+      }
+      .embed-title { font-weight: 700; letter-spacing: 0.01em; font-size: 16px; margin: 0; color: #fff; }
+      .embed-url { font-size: 12px; color: rgba(255,255,255,0.7); margin-top: 2px; text-decoration: none; }
+      .embed-body { padding: 16px; }
+      .embed-media { width: 100%; max-height: 70vh; border-radius: 12px; display: block; background:#0b0d22; }
+      .embed-video-frame { position: relative; }
+      .embed-video-frame::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        border-radius: 12px;
+        box-shadow: 0 12px 32px rgba(0,0,0,0.55);
+        pointer-events: none;
+      }
+      .embed-description { margin-top: 12px; color: rgba(255,255,255,0.82); font-size: 14px; line-height: 1.5; }
+    </style>
   </head>
   <body>
-    ${mediaElement}
+    <article class="embed-shell">
+      <header class="embed-header">
+        <div>
+          <p class="embed-title">${title}</p>
+          <a class="embed-url" href="${absoluteUrl}" target="_blank" rel="noopener">${absoluteUrl}</a>
+        </div>
+      </header>
+      <div class="embed-body">
+        ${mediaElement}
+        <p class="embed-description">${description}</p>
+      </div>
+    </article>
     <script>
       (() => {
         const stopEvent = (event) => {
