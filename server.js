@@ -42,6 +42,7 @@ const ONE_YEAR_SECONDS = 31536000;
 const NO_CACHE_HEADER = 'no-cache, no-store, must-revalidate';
 const SHORT_CACHE_SECONDS = 300; // 5 minutes for static assets
 const MEDIA_ROTATION_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
+ codex/rotate-media-urls-every-10-minutes-snqsxp
 const rotationTokenMap = new Map();
 const rotationPayloadMap = new Map();
 
@@ -161,6 +162,24 @@ app.get('/media/embed/shared/:file', async (req, res) => {
 app.get('/media/embed/users/:userSlug/:file', async (req, res) => {
   const userSlug = slugifyMedia(req.params.userSlug);
   return respondWithEmbed(res, `users/${userSlug}/${req.params.file}`, req.query);
+});
+
+app.get('/media/embed/r/:token', async (req, res) => {
+  try {
+    const payload = await resolveRotatingToken(req.params.token);
+    if (!payload) {
+      return res.status(404).send('Not found');
+    }
+
+    const embedPath = payload.bucketType === 'shared'
+      ? `shared/${payload.fileName}`
+      : `users/${payload.ownerSlug}/${payload.fileName}`;
+
+    return respondWithEmbed(res, embedPath, req.query, `/media/r/${req.params.token}`);
+  } catch (err) {
+    console.error('Rotating embed error:', err);
+    return res.status(404).send('Not found');
+  }
 });
 
 // Catch-all embed so every file path can produce an embed page
@@ -1247,16 +1266,6 @@ function generateMediaKey(length = 5) {
     const useUpper = Math.random() < 0.6; // Bias toward uppercase for a punchier look
     const source = useUpper ? uppercase : lowercase;
     const char = source[Math.floor(Math.random() * source.length)];
-
-    hasUpper ||= useUpper;
-    hasLower ||= !useUpper;
-    letters.push(char);
-  }
-
-  if (!hasUpper) {
-    const index = Math.floor(Math.random() * letters.length);
-    letters[index] = uppercase[Math.floor(Math.random() * uppercase.length)];
-  }
 
   if (!hasLower && letters.length > 1) {
     const index = Math.floor(Math.random() * letters.length);
