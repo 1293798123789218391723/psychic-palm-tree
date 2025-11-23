@@ -1522,7 +1522,7 @@ function renderEmbedPage(fileUrl, fileName, query = {}) {
   const title = merged.title || fileName || 'Media';
   const description = merged.desc || 'Embedded media';
   const color = merged.color || '#151521';
-  const absoluteUrl = fileUrl.startsWith('http') ? fileUrl : `${PUBLIC_URL || ''}${fileUrl}`;
+  const absoluteUrl = normalizeAbsoluteUrl(fileUrl);
   const ext = (path.extname(fileName || '') || '').toLowerCase();
   const isImage = /\.(png|jpe?g|gif|webp|avif|svg)$/i.test(ext);
   const isVideo = /\.(mp4|webm|ogg|mov|m4v)$/i.test(ext);
@@ -1657,6 +1657,23 @@ function renderEmbedPage(fileUrl, fileName, query = {}) {
     </article>
     <script>
       (() => {
+        const loader = document.getElementById('loader');
+        const media = document.getElementById('embedMedia');
+
+        function hideLoader() {
+          if (loader) loader.classList.add('hidden');
+        }
+
+        if (media) {
+          const doneEvents = ['canplay', 'loadeddata', 'loadedmetadata', 'load'];
+          doneEvents.forEach((evt) => media.addEventListener(evt, hideLoader, { once: true }));
+          media.addEventListener('error', () => {
+            if (loader) loader.querySelector('p').textContent = 'Preview not available';
+          });
+        } else {
+          hideLoader();
+        }
+
         const stopEvent = (event) => {
           event.preventDefault();
           event.stopPropagation();
@@ -1682,6 +1699,13 @@ function renderEmbedPage(fileUrl, fileName, query = {}) {
     </script>
   </body>
   </html>`;
+}
+
+function normalizeAbsoluteUrl(url = '') {
+  const trimmed = url.trim();
+  if (!trimmed) return '';
+  const base = PUBLIC_URL || (DOMAIN.startsWith('http') ? DOMAIN : `https://${DOMAIN}`);
+  return trimmed.startsWith('http') ? trimmed : `${base}${trimmed.startsWith('/') ? '' : '/'}${trimmed}`;
 }
 
 // Health check

@@ -367,7 +367,11 @@
     }
 
     .password-toggle .eye-icon {
-        font-size: 1.2rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 20px;
+        height: 20px;
         user-select: none;
         pointer-events: none;
     }
