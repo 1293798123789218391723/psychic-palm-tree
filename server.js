@@ -42,7 +42,6 @@ const ONE_YEAR_SECONDS = 31536000;
 const NO_CACHE_HEADER = 'no-cache, no-store, must-revalidate';
 const SHORT_CACHE_SECONDS = 300; // 5 minutes for static assets
 const MEDIA_ROTATION_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
- codex/rotate-media-urls-every-10-minutes-snqsxp
 const rotationTokenMap = new Map();
 const rotationPayloadMap = new Map();
 
@@ -1267,9 +1266,26 @@ function generateMediaKey(length = 5) {
     const source = useUpper ? uppercase : lowercase;
     const char = source[Math.floor(Math.random() * source.length)];
 
+    letters.push(char);
+
+    if (useUpper) {
+      hasUpper = true;
+    } else {
+      hasLower = true;
+    }
+  }
+
+  // Ensure the key includes at least one lowercase character for better readability
   if (!hasLower && letters.length > 1) {
     const index = Math.floor(Math.random() * letters.length);
     letters[index] = lowercase[Math.floor(Math.random() * lowercase.length)];
+    hasLower = true;
+  }
+
+  // Ensure at least one uppercase character when possible
+  if (!hasUpper && letters.length > 0) {
+    const index = 0;
+    letters[index] = uppercase[Math.floor(Math.random() * uppercase.length)];
   }
 
   return letters.join('');
