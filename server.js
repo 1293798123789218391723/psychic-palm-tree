@@ -1581,12 +1581,12 @@ function renderEmbedPage(fileUrl, fileName, query = {}) {
   ` : '';
 
   const mediaElement = isImage
-    ? `<img class="embed-media" src="${absoluteUrl}" alt="${title}" />`
+    ? `<img id="embedMedia" class="embed-media" src="${absoluteUrl}" alt="${title}" />`
     : isVideo
       ? `<div class="embed-video-frame">
-          <video class="embed-media" src="${absoluteUrl}" controls autoplay loop playsinline poster="" preload="metadata"></video>
+          <video id="embedMedia" class="embed-media" src="${absoluteUrl}" controls autoplay loop playsinline poster="" preload="metadata"></video>
          </div>`
-      : `<a class="embed-link" href="${absoluteUrl}">${absoluteUrl}</a>`;
+      : `<a id="embedMedia" class="embed-link" href="${absoluteUrl}">${absoluteUrl}</a>`;
 
   return `<!DOCTYPE html>
   <html lang="en">
@@ -1629,6 +1629,9 @@ function renderEmbedPage(fileUrl, fileName, query = {}) {
       .embed-title { font-weight: 700; letter-spacing: 0.01em; font-size: 16px; margin: 0; color: #fff; }
       .embed-url { font-size: 12px; color: rgba(255,255,255,0.7); margin-top: 2px; text-decoration: none; }
       .embed-body { padding: 16px; }
+      .embed-loader { display: flex; align-items: center; gap: 10px; color: rgba(255,255,255,0.75); margin-bottom: 12px; font-size: 14px; }
+      .embed-loader .spinner { width: 14px; height: 14px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.2); border-top-color: rgba(255,255,255,0.6); animation: spin 0.8s linear infinite; }
+      .embed-loader.hidden { display: none; }
       .embed-media { width: 100%; max-height: 70vh; border-radius: 12px; display: block; background:#0b0d22; }
       .embed-video-frame { position: relative; }
       .embed-video-frame::after {
@@ -1640,6 +1643,7 @@ function renderEmbedPage(fileUrl, fileName, query = {}) {
         pointer-events: none;
       }
       .embed-description { margin-top: 12px; color: rgba(255,255,255,0.82); font-size: 14px; line-height: 1.5; }
+      @keyframes spin { from { transform: rotate(0); } to { transform: rotate(360deg); } }
     </style>
   </head>
   <body>
@@ -1651,6 +1655,10 @@ function renderEmbedPage(fileUrl, fileName, query = {}) {
         </div>
       </header>
       <div class="embed-body">
+        <div id="loader" class="embed-loader">
+          <span class="spinner" aria-hidden="true"></span>
+          <p>Loading preview...</p>
+        </div>
         ${mediaElement}
         <p class="embed-description">${description}</p>
       </div>
