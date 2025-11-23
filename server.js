@@ -135,6 +135,7 @@ app.get('/:rotationKey([A-Za-z0-9]{5})', async (req, res, next) => {
         : `/${encodeURIComponent(resolved.ownerSlug)}/${encodeURIComponent(resolved.fileName)}`;
 
       return respondWithEmbed(res, embedPath, req.query, friendlyPath);
+      return respondWithEmbed(res, embedPath, req.query, `/${req.params.rotationKey}`);
     }
 
     setFriendlyMediaHeaders(res);
