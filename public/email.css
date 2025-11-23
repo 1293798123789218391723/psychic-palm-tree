@@ -136,6 +136,14 @@
         background-clip: text;
     }
 
+    .auth-subtitle {
+        margin: 0 0 1.5rem 0;
+        color: rgba(255, 255, 255, 0.72);
+        letter-spacing: 0.01em;
+        font-size: 0.95rem;
+        line-height: 1.5;
+    }
+
     .auth-helper {
         font-size: 0.95rem;
         color: var(--text-muted);
@@ -362,10 +370,6 @@
         font-size: 1.2rem;
         user-select: none;
         pointer-events: none;
-    }
-
-    .password-input-wrapper input[type="text"] ~ .password-toggle .eye-icon::after {
-        content: '👁️‍🗨️';
     }
 
     .stack-form input,
