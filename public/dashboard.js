@@ -57,7 +57,31 @@
     
     // Get owner username from config
     const ownerUsername = (window.__LARP_CONFIG__?.ownerUsername || 'dot').toLowerCase();
-    
+
+    function disableInteractions() {
+        const stopEvent = (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+        };
+
+        document.addEventListener('contextmenu', stopEvent);
+        ['copy', 'cut', 'paste'].forEach((evt) => document.addEventListener(evt, stopEvent));
+
+        document.addEventListener('keydown', (event) => {
+            const key = event.key?.toLowerCase();
+            const ctrlOrMeta = event.ctrlKey || event.metaKey;
+
+            const blockedShortcut =
+                event.key === 'F12' ||
+                (ctrlOrMeta && event.shiftKey && ['i', 'j', 'c'].includes(key)) ||
+                (ctrlOrMeta && ['u', 's', 'p', 'c', 'a'].includes(key));
+
+            if (blockedShortcut) {
+                stopEvent(event);
+            }
+        });
+    }
+
     // Check if current user is owner
     function isOwnerUser(user = currentUser) {
         if (!user || !user.username) return false;
@@ -65,6 +89,8 @@
     }
 
     document.addEventListener('DOMContentLoaded', () => {
+        disableInteractions();
+
         initTabs();
         initNotificationsUI();
         initChatUI();
@@ -663,12 +689,6 @@
                     // If URL parsing fails, use as-is
                 }
 
-                // Embed URL with prefs (for embed button only)
-                let embedUrl = asset.embedUrl || cleanUrl;
-                if (embedUrl && !embedUrl.startsWith('http://') && !embedUrl.startsWith('https://')) {
-                    embedUrl = new URL(embedUrl, window.location.origin).toString();
-                }
-
                 const videoThumb = isVideo(cleanUrl)
                     ? `<video class="thumb-video" src="${cleanUrl}" muted playsinline loop preload="metadata"></video><span class="play-icon">&#9658;</span>`
                     : '';
@@ -686,7 +706,6 @@
                         <div class="meta-line">${fileSize} &bull; ${fileDate}</div>
                         <div class="actions">
                             <button type="button" class="ghost-btn tiny copy-link" data-url="${escapeHtml(cleanUrl)}">Copy URL</button>
-                            <button type="button" class="ghost-btn tiny copy-embed" data-embed="${escapeHtml(embedUrl)}">Copy Embed</button>
                             <button type="button" class="ghost-btn tiny open-preview" data-url="${escapeHtml(cleanUrl)}" data-name="${fileName}">Preview</button>
                             ${allowDelete ? `<button type="button" class="ghost-btn tiny delete-asset" data-bucket="${escapeHtml(asset.bucketId)}" data-name="${escapeHtml(asset.name)}">Delete</button>` : ''}
                         </div>
@@ -696,7 +715,7 @@
             .join('');
         
         // Attach event listeners to the newly rendered buttons
-        const actionButtons = container.querySelectorAll('.copy-link, .copy-embed, .open-preview, .delete-asset');
+        const actionButtons = container.querySelectorAll('.copy-link, .open-preview, .delete-asset');
         console.log('Attaching media action listeners to', actionButtons.length, 'buttons');
         actionButtons.forEach(btn => {
             btn.addEventListener('click', handleAssetActions);
@@ -720,9 +739,6 @@
         const target = event.target;
         if (target.classList.contains('copy-link')) {
             copyToClipboard(target.dataset.url, target);
-        }
-        if (target.classList.contains('copy-embed')) {
-            copyToClipboard(target.dataset.embed, target);
         }
         if (target.classList.contains('open-preview')) {
             openMediaViewer(target.dataset.url, target.dataset.name);
@@ -781,25 +797,6 @@
             }
         }
         
-        // For copy-embed: use embed URL with prefs
-        if (button?.classList.contains('copy-embed')) {
-            const embedUrl = button.dataset.embed || text;
-            if (!embedUrl || embedUrl === 'undefined') {
-                console.error('Invalid embed URL');
-                if (button) {
-                    const original = button.textContent;
-                    button.textContent = 'Error';
-                    button.style.background = 'rgba(255, 142, 142, 0.2)';
-                    setTimeout(() => {
-                        button.textContent = original;
-                        button.style.background = '';
-                    }, 2000);
-                }
-                return;
-            }
-            text = embedUrl;
-        }
-        
         navigator.clipboard.writeText(text).then(() => {
             if (button) {
                 const original = button.textContent;
@@ -834,7 +831,7 @@
                 } else if (button) {
                     button.textContent = 'Failed';
                     setTimeout(() => {
-                        button.textContent = button.dataset.embed ? 'Copy Embed' : 'Copy URL';
+                        button.textContent = 'Copy URL';
                     }, 2000);
                 }
             } catch (err) {
@@ -842,7 +839,7 @@
                 if (button) {
                     button.textContent = 'Error';
                     setTimeout(() => {
-                        button.textContent = button.dataset.embed ? 'Copy Embed' : 'Copy URL';
+                        button.textContent = 'Copy URL';
                     }, 2000);
                 }
             }
