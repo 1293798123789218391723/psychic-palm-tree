@@ -50,6 +50,8 @@
     });
 
   const devtoolsOpen = () => {
+    const widthGap = Math.abs(window.outerWidth - window.innerWidth);
+    const heightGap = Math.abs(window.outerHeight - window.innerHeight);
     const widthGap = Math.max(0, Math.abs(window.outerWidth - window.innerWidth) - initialWidthGap);
     const heightGap = Math.max(0, Math.abs(window.outerHeight - window.innerHeight) - initialHeightGap);
     return widthGap > DEVTOOLS_GAP || heightGap > DEVTOOLS_GAP;
@@ -71,9 +73,12 @@
     console.log(detector);
   };
 
+  window.addEventListener('resize', watchForResize, { passive: true });
+  setInterval(watchForResize, 150);
+  watchForConsole();
   const watchForDebugger = () => {
     const start = performance.now();
-    debugger; // eslint-disable-line no-debugger
+    debugger; 
     if (performance.now() - start > DEBUG_PAUSE_THRESHOLD) {
       redirectAway();
     }
