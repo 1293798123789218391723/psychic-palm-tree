@@ -112,10 +112,11 @@ function shouldServeEmbedPreview(req) {
   const ua = (req.get('user-agent') || '').toLowerCase();
   const accept = (req.get('accept') || '').toLowerCase();
   const isEmbedBot = EMBED_BOT_KEYWORDS.some((keyword) => ua.includes(keyword));
-  const preferHtml = accept.includes('text/html');
+  const prefersHtml = accept.includes('text/html');
+  const acceptsAnything = accept.includes('*/*');
   const explicitEmbed = ['1', 'true', 'yes'].includes((req.query.embed || '').toString().toLowerCase());
 
-  return Boolean(explicitEmbed || (isEmbedBot && (preferHtml || !accept)));
+  return Boolean(explicitEmbed || (isEmbedBot && (prefersHtml || acceptsAnything || !accept)));
 }
 
 app.get('/:rotationKey([A-Za-z0-9]{5})', async (req, res, next) => {
@@ -135,7 +136,6 @@ app.get('/:rotationKey([A-Za-z0-9]{5})', async (req, res, next) => {
         : `/${encodeURIComponent(resolved.ownerSlug)}/${encodeURIComponent(resolved.fileName)}`;
 
       return respondWithEmbed(res, embedPath, req.query, friendlyPath);
-      return respondWithEmbed(res, embedPath, req.query, `/${req.params.rotationKey}`);
     }
 
     setFriendlyMediaHeaders(res);

@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
+  <title id="title">larpgod</title>
+  <desc id="desc">Preview graphic for larpgod.xyz</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0e1028" />
+      <stop offset="100%" stop-color="#0b0d22" />
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)" />
+  <g fill="none" stroke="#7ad7f0" stroke-width="2" opacity="0.35">
+    <path d="M50 120 Q 250 60 450 140 T 850 140 T 1150 120" />
+    <path d="M80 260 Q 320 200 560 280 T 1040 280" />
+    <path d="M40 420 Q 360 360 680 430 T 1160 430" />
+  </g>
+  <text x="80" y="330" fill="#f2f6ff" font-family="'Inter', 'Segoe UI', sans-serif" font-size="96" font-weight="700">larpgod</text>
+  <text x="82" y="390" fill="#a6b6d4" font-family="'Inter', 'Segoe UI', sans-serif" font-size="36" font-weight="500">The original home of dot</text>
+</svg>
