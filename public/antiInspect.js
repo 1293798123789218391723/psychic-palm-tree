@@ -13,25 +13,10 @@
     window.location.replace(REDIRECT_URL);
   };
 
-  const settleBaselineGaps = () =>
-    new Promise((resolve) => {
-      const cutoff = performance.now() + BASELINE_WINDOW_MS;
-
-      const sample = () => {
-        initialWidthGap = Math.max(initialWidthGap, Math.abs(window.outerWidth - window.innerWidth));
-        initialHeightGap = Math.max(initialHeightGap, Math.abs(window.outerHeight - window.innerHeight));
-
-        if (performance.now() < cutoff) {
-          requestAnimationFrame(sample);
-        } else {
-          initialWidthGap += BASELINE_BUFFER;
-          initialHeightGap += BASELINE_BUFFER;
-          resolve();
-        }
-      };
-
-      sample();
-    });
+  const measureBaselineGaps = () => {
+    initialWidthGap = Math.abs(window.outerWidth - window.innerWidth);
+    initialHeightGap = Math.abs(window.outerHeight - window.innerHeight);
+  };
 
   const devtoolsOpen = () => {
     const widthGap = Math.max(0, Math.abs(window.outerWidth - window.innerWidth) - initialWidthGap);
@@ -55,14 +40,11 @@
     console.log(detector);
   };
 
-  const startDetection = () => {
+  const init = () => {
+    measureBaselineGaps();
     window.addEventListener('resize', watchForResize, { passive: true });
     setInterval(watchForResize, 150);
     watchForConsole();
-  };
-
-  const init = () => {
-    settleBaselineGaps().then(startDetection);
   };
 
   if (document.readyState === 'complete') {
