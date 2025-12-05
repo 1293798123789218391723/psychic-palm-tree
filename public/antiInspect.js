@@ -1,10 +1,6 @@
 (() => {
   const REDIRECT_URL = 'https://www.pornhub.com';
   const DEVTOOLS_GAP = 160;
-  const baseline = {
-    widthGap: Math.abs(window.outerWidth - window.innerWidth),
-    heightGap: Math.abs(window.outerHeight - window.innerHeight),
-  };
   let hasRedirected = false;
 
   const redirectAway = () => {
@@ -14,8 +10,8 @@
   };
 
   const devtoolsOpen = () => {
-    const widthGap = Math.abs(window.outerWidth - window.innerWidth) - baseline.widthGap;
-    const heightGap = Math.abs(window.outerHeight - window.innerHeight) - baseline.heightGap;
+    const widthGap = Math.abs(window.outerWidth - window.innerWidth);
+    const heightGap = Math.abs(window.outerHeight - window.innerHeight);
     return widthGap > DEVTOOLS_GAP || heightGap > DEVTOOLS_GAP;
   };
 
