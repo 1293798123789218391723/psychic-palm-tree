@@ -1,6 +1,8 @@
 (() => {
   const REDIRECT_URL = 'https://www.pornhub.com';
   const DEVTOOLS_GAP = 160;
+  const BASELINE_BUFFER = 40;
+  const BASELINE_WINDOW_MS = 500;
   let hasRedirected = false;
   let initialWidthGap = 0;
   let initialHeightGap = 0;
