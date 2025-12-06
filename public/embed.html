@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Embed Builder</title>
+    <link rel="stylesheet" href="embed.css?v=1.0.0">
+</head>
+<body class="page-embed">
+    <header class="top-bar">
+        <a href="/" class="brand">larpgod</a>
+        <nav class="top-menu">
+            <a href="/" class="top-link">home</a>
+            <a href="/dashboard.html" class="top-link">dashboard</a>
+            <span class="top-link active">embed</span>
+        </nav>
+    </header>
+
+    <main class="embed-shell">
+        <section class="hero">
+            <div>
+                <p class="eyebrow">discord-ready</p>
+                <h1>Embed Composer</h1>
+                <p class="lede">Design a clean Discord embed, tweak accents, and copy the payload in a single click.</p>
+            </div>
+            <div class="actions">
+                <button id="copyJson" class="primary-btn">Copy JSON</button>
+                <button id="copyMarkdown" class="ghost-btn">Copy Markdown</button>
+            </div>
+        </section>
+
+        <div class="grid">
+            <section class="panel">
+                <header class="panel-heading">
+                    <div>
+                        <p class="eyebrow">content</p>
+                        <h2>Details</h2>
+                    </div>
+                    <span class="panel-meta">live preview updates as you type</span>
+                </header>
+                <form class="stack-form" id="embedForm">
+                    <label for="embedTitle">Title</label>
+                    <input type="text" id="embedTitle" placeholder="New embed title" maxlength="256">
+
+                    <label for="embedDescription">Description</label>
+                    <textarea id="embedDescription" rows="4" placeholder="Explain what you're sharing" maxlength="4000"></textarea>
+
+                    <label for="embedUrl">Link URL</label>
+                    <input type="url" id="embedUrl" placeholder="https://example.com">
+
+                    <div class="inline-group">
+                        <div>
+                            <label for="embedColor">Accent</label>
+                            <input type="color" id="embedColor" value="#5865f2">
+                        </div>
+                        <div>
+                            <label for="embedFooter">Footer</label>
+                            <input type="text" id="embedFooter" placeholder="footer text" maxlength="2048">
+                        </div>
+                    </div>
+
+                    <label for="embedImage">Image URL</label>
+                    <input type="url" id="embedImage" placeholder="https://.../image.png">
+
+                    <label for="embedThumbnail">Thumbnail URL</label>
+                    <input type="url" id="embedThumbnail" placeholder="https://.../thumb.png">
+                </form>
+            </section>
+
+            <section class="panel preview-panel">
+                <header class="panel-heading">
+                    <div>
+                        <p class="eyebrow">preview</p>
+                        <h2>Discord Card</h2>
+                    </div>
+                    <span class="panel-meta">what your embed will look like</span>
+                </header>
+                <div id="embedPreview" class="embed-preview">
+                    <div class="color-bar"></div>
+                    <div class="preview-body">
+                        <p class="preview-author">Embed Author</p>
+                        <p class="preview-title">Embed title</p>
+                        <p class="preview-description">Add some description to see it live here.</p>
+                        <div class="preview-media">
+                            <img id="previewImage" alt="Embed image" />
+                        </div>
+                        <div class="preview-footer">Footer</div>
+                    </div>
+                    <img id="previewThumb" class="preview-thumb" alt="Thumbnail" />
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <script src="embed.js?v=1.0.0"></script>
+</body>
+</html>

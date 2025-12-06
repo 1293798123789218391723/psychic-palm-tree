@@ -28,10 +28,30 @@ async function comparePassword(password, hash) {
   return bcrypt.compare(password, hash);
 }
 
+function getTokenFromRequest(req) {
+  const authHeader = req.headers['authorization'];
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const token = authHeader.split(' ')[1];
+    if (token) return token;
+  }
+
+  const cookieHeader = req.headers?.cookie || '';
+  if (cookieHeader) {
+    const cookies = cookieHeader.split(';').map((part) => part.trim());
+    for (const pair of cookies) {
+      const [name, value] = pair.split('=');
+      if (name === 'authToken' && value) {
+        return decodeURIComponent(value);
+      }
+    }
+  }
+
+  return null;
+}
+
 // Middleware to authenticate requests
 function authenticateToken(req, res, next) {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
+  const token = getTokenFromRequest(req);
 
   if (!token) {
     return res.status(401).json({ error: 'Access token required' });
@@ -51,5 +71,6 @@ module.exports = {
   verifyToken,
   hashPassword,
   comparePassword,
-  authenticateToken
+  authenticateToken,
+  getTokenFromRequest
 };
