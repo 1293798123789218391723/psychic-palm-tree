@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Embed Studio</title>
+    <link rel="stylesheet" href="embed.css?v=2.0.0">
+</head>
+<body class="page-embed">
+    <header class="site-header">
+        <div class="brand">larpgod</div>
+        <nav class="nav-links">
+            <a href="/" class="nav-link">home</a>
+            <a href="/dashboard.html" class="nav-link">dashboard</a>
+            <span class="nav-link active">embed</span>
+        </nav>
+    </header>
+
+    <main class="page-shell">
+        <section class="hero">
+            <div class="hero-copy">
+                <p class="pill">private embed studio</p>
+                <h1>Ship Discord embeds without touching a JSON blob.</h1>
+                <p class="lede">This builder mirrors the v0.shadcn workspace from <code>npx shadcn@latest add https://v0.app/chat/b/b_cE2aswdr4dd</code>. Adjust content, color, and media, then copy the ready-to-send payload.</p>
+                <div class="hero-actions">
+                    <button id="copyJson" class="btn primary">Copy JSON</button>
+                    <button id="copyMarkdown" class="btn ghost">Copy Markdown</button>
+                </div>
+            </div>
+            <div class="hero-card">
+                <div class="card-head">
+                    <div>
+                        <p class="eyebrow">live preview</p>
+                        <h3>Discord embed</h3>
+                    </div>
+                    <span class="badge">approved users only</span>
+                </div>
+                <div id="embedPreview" class="discord-card">
+                    <div class="color-bar"></div>
+                    <div class="discord-body">
+                        <p class="preview-author">Embed Author</p>
+                        <p class="preview-title">Embed title</p>
+                        <p class="preview-description">Add some description to see it live here.</p>
+                        <div class="preview-media"><img id="previewImage" alt="Embed image" /></div>
+                        <div class="preview-footer">Footer</div>
+                    </div>
+                    <img id="previewThumb" class="preview-thumb" alt="Thumbnail" />
+                </div>
+            </div>
+        </section>
+
+        <section class="workspace">
+            <div class="form-pane">
+                <div class="pane-head">
+                    <div>
+                        <p class="eyebrow">content</p>
+                        <h2>Embed payload</h2>
+                    </div>
+                    <span class="hint">Fields map 1:1 with Discord embeds</span>
+                </div>
+                <form class="stack-form" id="embedForm">
+                    <div class="field">
+                        <label for="embedTitle">Title</label>
+                        <input type="text" id="embedTitle" placeholder="New embed title" maxlength="256">
+                    </div>
+                    <div class="field">
+                        <label for="embedDescription">Description</label>
+                        <textarea id="embedDescription" rows="4" placeholder="Explain what you're sharing" maxlength="4000"></textarea>
+                    </div>
+                    <div class="field">
+                        <label for="embedUrl">Link URL</label>
+                        <input type="url" id="embedUrl" placeholder="https://example.com">
+                    </div>
+                    <div class="grid-two">
+                        <div class="field">
+                            <label for="embedColor">Accent</label>
+                            <input type="color" id="embedColor" value="#5865f2">
+                        </div>
+                        <div class="field">
+                            <label for="embedFooter">Footer</label>
+                            <input type="text" id="embedFooter" placeholder="footer text" maxlength="2048">
+                        </div>
+                    </div>
+                    <div class="field">
+                        <label for="embedImage">Image URL</label>
+                        <input type="url" id="embedImage" placeholder="https://.../image.png">
+                    </div>
+                    <div class="field">
+                        <label for="embedThumbnail">Thumbnail URL</label>
+                        <input type="url" id="embedThumbnail" placeholder="https://.../thumb.png">
+                    </div>
+                </form>
+            </div>
+
+            <div class="preview-pane">
+                <div class="pane-head">
+                    <div>
+                        <p class="eyebrow">preview</p>
+                        <h2>Card mock</h2>
+                    </div>
+                    <span class="hint">Matches the hero preview above</span>
+                </div>
+                <div class="preview-shell">
+                    <div id="embedPreviewClone" class="discord-card clone">
+                        <div class="color-bar"></div>
+                        <div class="discord-body">
+                            <p class="preview-author">Embed Author</p>
+                            <p class="preview-title">Embed title</p>
+                            <p class="preview-description">Add some description to see it live here.</p>
+                            <div class="preview-media"><img alt="Embed image" /></div>
+                            <div class="preview-footer">Footer</div>
+                        </div>
+                        <img class="preview-thumb" alt="Thumbnail" />
+                    </div>
+                    <p class="mini-hint">Copy buttons mirror the v0.shadcn embed template output.</p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <div id="toastHost"></div>
+    <script src="embed.js?v=2.0.0"></script>
+</body>
+</html>
