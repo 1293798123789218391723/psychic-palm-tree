@@ -8,14 +8,8 @@
     const imageInput = document.getElementById('embedImage');
     const thumbInput = document.getElementById('embedThumbnail');
 
-    const preview = document.getElementById('embedPreview');
-    const previewTitle = preview?.querySelector('.preview-title');
-    const previewDesc = preview?.querySelector('.preview-description');
-    const previewAuthor = preview?.querySelector('.preview-author');
-    const previewFooter = preview?.querySelector('.preview-footer');
-    const previewColor = preview?.querySelector('.color-bar');
-    const previewImage = document.getElementById('previewImage');
-    const previewThumb = document.getElementById('previewThumb');
+    const previewPrimary = document.getElementById('embedPreview');
+    const previewClone = document.getElementById('embedPreviewClone');
 
     const copyJsonBtn = document.getElementById('copyJson');
     const copyMarkdownBtn = document.getElementById('copyMarkdown');
@@ -60,39 +54,58 @@
         };
     }
 
-    function updatePreview() {
-        const embed = collectEmbed();
-        if (previewTitle) {
-            previewTitle.textContent = embed.title || 'Embed title';
+    function extractPreviewParts(container) {
+        if (!container) return null;
+        return {
+            title: container.querySelector('.preview-title'),
+            desc: container.querySelector('.preview-description'),
+            author: container.querySelector('.preview-author'),
+            footer: container.querySelector('.preview-footer'),
+            color: container.querySelector('.color-bar'),
+            image: container.querySelector('.preview-media img'),
+            thumb: container.querySelector('.preview-thumb'),
+        };
+    }
+
+    function updateSinglePreview(parts, embed) {
+        if (!parts) return;
+        if (parts.title) {
+            parts.title.textContent = embed.title || 'Embed title';
             if (embed.url) {
                 const link = document.createElement('a');
                 link.href = embed.url;
                 link.textContent = embed.title || 'Embed title';
                 link.target = '_blank';
                 link.rel = 'noopener noreferrer';
-                previewTitle.innerHTML = '';
-                previewTitle.appendChild(link);
+                parts.title.innerHTML = '';
+                parts.title.appendChild(link);
             }
         }
-        if (previewDesc) previewDesc.textContent = embed.description || 'Add some description to see it live here.';
-        if (previewAuthor) {
+        if (parts.desc) parts.desc.textContent = embed.description || 'Add some description to see it live here.';
+        if (parts.author) {
             try {
-                previewAuthor.textContent = embed.url ? new URL(embed.url).hostname : 'Embed Author';
+                parts.author.textContent = embed.url ? new URL(embed.url).hostname : 'Embed Author';
             } catch (err) {
-                previewAuthor.textContent = 'Embed Author';
+                parts.author.textContent = 'Embed Author';
             }
         }
-        if (previewFooter) previewFooter.textContent = embed.footer || 'Footer';
-        if (previewColor) previewColor.style.background = embed.color || '#5865f2';
+        if (parts.footer) parts.footer.textContent = embed.footer || 'Footer';
+        if (parts.color) parts.color.style.background = embed.color || '#5865f2';
 
-        if (previewImage) {
-            previewImage.src = embed.image;
-            previewImage.style.display = embed.image ? 'block' : 'none';
+        if (parts.image) {
+            parts.image.src = embed.image;
+            parts.image.style.display = embed.image ? 'block' : 'none';
         }
-        if (previewThumb) {
-            previewThumb.src = embed.thumbnail;
-            previewThumb.style.display = embed.thumbnail ? 'block' : 'none';
+        if (parts.thumb) {
+            parts.thumb.src = embed.thumbnail;
+            parts.thumb.style.display = embed.thumbnail ? 'block' : 'none';
         }
+    }
+
+    function updatePreview() {
+        const embed = collectEmbed();
+        updateSinglePreview(extractPreviewParts(previewPrimary), embed);
+        updateSinglePreview(extractPreviewParts(previewClone), embed);
     }
 
     async function copyToClipboard(text, label) {
@@ -109,7 +122,7 @@
         const toast = document.createElement('div');
         toast.className = `toast ${error ? 'error' : 'success'}`;
         toast.textContent = message;
-        document.body.appendChild(toast);
+        (document.getElementById('toastHost') || document.body).appendChild(toast);
         requestAnimationFrame(() => toast.classList.add('visible'));
         setTimeout(() => {
             toast.classList.remove('visible');
