@@ -318,6 +318,33 @@ app.get('/config.js', (req, res) => {
   })};`);
 });
 
+function authenticatePage(req, res, next) {
+  const token = auth.getTokenFromRequest(req);
+  if (!token) {
+    return res.redirect('/dashboard');
+  }
+
+  const decoded = auth.verifyToken(token);
+  if (!decoded) {
+    return res.redirect('/dashboard');
+  }
+
+  req.userId = decoded.userId;
+  next();
+}
+
+function requireApprovedPageUser(req, res, next) {
+  if (!req.currentUser || !req.currentUser.isApproved) {
+    return res.redirect('/dashboard');
+  }
+  next();
+}
+
+app.get(['/embed', '/embed.html'], authenticatePage, attachCurrentUser, requireApprovedPageUser, (req, res) => {
+  applyNoCache(res);
+  res.sendFile(path.join(__dirname, 'public', 'embed.html'));
+});
+
 app.use(express.static(path.join(__dirname, 'public'), publicStaticOptions));
 
 // Friendly media URLs

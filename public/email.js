@@ -8,10 +8,20 @@ const ownerUsername = (window.__LARP_CONFIG__?.ownerUsername || 'dot').toLowerCa
 let authToken = null;
 let currentUser = null;
 let currentAuthMode = 'login';
+const secureCookie = window.location.protocol === 'https:';
 window.dashboardState = {
     getAuthToken: () => authToken,
     getCurrentUser: () => currentUser
 };
+
+function writeAuthCookie(token) {
+    if (!token) return;
+    document.cookie = `authToken=${encodeURIComponent(token)}; path=/; SameSite=Lax${secureCookie ? '; Secure' : ''}`;
+}
+
+function clearAuthCookie() {
+    document.cookie = `authToken=; Max-Age=0; path=/; SameSite=Lax${secureCookie ? '; Secure' : ''}`;
+}
 
 function emitUserChange() {
     window.dashboardState.getAuthToken = () => authToken;
@@ -55,9 +65,12 @@ async function checkAuth() {
     const cachedUser = safeParseUser(localStorage.getItem('currentUser'));
 
     if (!token) {
+        clearAuthCookie();
         showAuthUI();
         return;
     }
+
+    writeAuthCookie(token);
 
     // Use cached session immediately for smoother reloads
     if (cachedUser) {
@@ -78,6 +91,7 @@ async function checkAuth() {
         if (response.status === 401 || response.status === 403) {
             // Only bounce to login if we have no cached user to trust
             if (!cachedUser) {
+                clearAuthCookie();
                 throw new Error('unauthorized');
             }
             return;
@@ -372,6 +386,7 @@ function logout() {
     currentUser = null;
     localStorage.removeItem('authToken');
     localStorage.removeItem('currentUser');
+    clearAuthCookie();
     emitUserChange();
     clearDataDisplays();
     showAuthUI();
@@ -382,6 +397,7 @@ function persistSession(token, user) {
     currentUser = user;
     localStorage.setItem('authToken', authToken);
     localStorage.setItem('currentUser', JSON.stringify(currentUser));
+    writeAuthCookie(authToken);
     emitUserChange();
     showAuthenticatedUI();
     handlePostLoginState();
